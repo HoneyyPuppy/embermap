@@ -44,6 +44,7 @@ def simulate_algorithm(routing_mode: str):
 
 
 if __name__ == "__main__":
-    # Simulate both to compare behaviour
+    # Simulate routing algorithms to compare behaviour
     simulate_algorithm("gradient")
     simulate_algorithm("link_state")
+    simulate_algorithm("dsdv")

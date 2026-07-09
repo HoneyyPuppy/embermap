@@ -63,3 +63,23 @@ class LinkStateRouting:
                     heapq.heappush(queue, (cost + 1, v, next_first_hop))
                     
         return INF, None
+
+
+class DSDVRouting:
+    """Implements Destination-Sequenced Distance-Vector updates."""
+    
+    @staticmethod
+    def should_update(
+        new_seq: int, new_metric: int, 
+        current_seq: int, current_metric: int
+    ) -> bool:
+        """
+        DSDV update rule: 
+        1. Higher sequence number is always preferred.
+        2. If sequence numbers are equal, the lower metric (cost) is preferred.
+        """
+        if new_seq > current_seq:
+            return True
+        elif new_seq == current_seq:
+            return new_metric < current_metric
+        return False

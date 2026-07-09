@@ -32,6 +32,9 @@ class MeshNetwork:
             if node.tick():
                 changed = True
                 
-        # Check if there are pending messages to process in the next tick
-        packets_in_flight = any(len(node.incoming_lsas) > 0 for node in self.nodes.values())
+        # Check if there are pending messages to process in the next tick (LSA or DSDV)
+        packets_in_flight = any(
+            len(node.incoming_lsas) > 0 or len(node.incoming_dsdv_updates) > 0 
+            for node in self.nodes.values()
+        )
         return changed or packets_in_flight
