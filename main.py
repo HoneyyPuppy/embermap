@@ -22,7 +22,8 @@ def simulate_algorithm(routing_mode: str):
     for name in sorted(network.nodes.keys()):
         node = network.nodes[name]
         nxt = node.points_to.id if node.points_to else "None"
-        print(f"  Node {name:6} | Cost: {node.cost:3} | Next Hop: {nxt}")
+        cost_str = f"{node.cost:.1f}" if isinstance(node.cost, float) else f"{node.cost}"
+        print(f"  Node {name:6} | Cost: {cost_str:5} | Next Hop: {nxt}")
         
     # 2. Trigger fire on N2 (Breaks path to EXIT for N1)
     print("\n[PHASE 2] Simulating Incident: Fire Detected on N2...")
@@ -40,7 +41,8 @@ def simulate_algorithm(routing_mode: str):
     for name in sorted(network.nodes.keys()):
         node = network.nodes[name]
         nxt = node.points_to.id if node.points_to else "None"
-        print(f"  Node {name:6} | Cost: {node.cost:3} | Next Hop: {nxt}")
+        cost_str = f"{node.cost:.1f}" if isinstance(node.cost, float) else f"{node.cost}"
+        print(f"  Node {name:6} | Cost: {cost_str:5} | Next Hop: {nxt}")
 
 
 if __name__ == "__main__":
@@ -49,3 +51,4 @@ if __name__ == "__main__":
     simulate_algorithm("link_state")
     simulate_algorithm("dsdv")
     simulate_algorithm("aodv")
+    simulate_algorithm("potential_field")

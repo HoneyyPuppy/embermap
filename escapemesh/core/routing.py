@@ -86,5 +86,45 @@ class DSDVRouting:
 
 class AODVRouting:
     """State definition and helper classes for AODV routing packets."""
-    # AODV relies on packet processing rather than numeric distance vector updates.
     pass
+
+
+class PotentialFieldRouting:
+    """Implements Potential Field Routing with attraction and repulsion factors."""
+
+    @staticmethod
+    def calculate_potential(
+        neighbors: List['Node'], 
+        is_exit: bool, 
+        on_fire: bool
+    ) -> Tuple[float, Optional['Node']]:
+        """
+        Computes potential and next-hop neighbor.
+        Exit potential is 0.0.
+        Fire potential is 1000.0 (high repulsion).
+        Normal potential = Min(neighbor potentials) + 1.0 + Local Repulsion.
+        Repulsion is added if any neighboring node is on fire, pushing routes away from fire zones early.
+        """
+        if is_exit:
+            return 0.0, None
+        if on_fire:
+            return 1000.0, None
+
+        # Check neighbor fire status to create a local repulsive potential barrier (danger zone warning)
+        neighbor_on_fire = any(n.on_fire for n in neighbors)
+        repulsion = 5.0 if neighbor_on_fire else 0.0
+
+        best_potential = float(INF)
+        best_neighbor = None
+
+        for n in neighbors:
+            if n.cost < best_potential:
+                best_potential = n.cost
+                best_neighbor = n
+
+        new_potential = best_potential + 1.0 + repulsion if best_potential != INF else float(INF)
+        # Cap potential at INF to prevent overflow
+        if new_potential > INF:
+            new_potential = float(INF)
+            
+        return new_potential, best_neighbor

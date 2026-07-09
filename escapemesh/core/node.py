@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Tuple, Set
-from escapemesh.core.routing import GradientRouting, LinkStateRouting, DSDVRouting, INF
+from escapemesh.core.routing import GradientRouting, LinkStateRouting, DSDVRouting, PotentialFieldRouting, INF
 from escapemesh.utils.logger import ColorLogger
 
 class Node:
@@ -144,6 +144,8 @@ class Node:
             return self._tick_dsdv()
         elif self.routing_mode == "aodv":
             return self._tick_aodv()
+        elif self.routing_mode == "potential_field":
+            return self._tick_potential_field()
         return False
 
     def _tick_gradient(self) -> bool:
@@ -151,6 +153,13 @@ class Node:
             self.neighbors, self.is_exit, self.on_fire
         )
         return self._update_routing_state(new_cost, best_neighbor)
+
+    def _tick_potential_field(self) -> bool:
+        new_potential, best_neighbor = PotentialFieldRouting.calculate_potential(
+            self.neighbors, self.is_exit, self.on_fire
+        )
+        # Using floating potential directly mapped to our cost state variable
+        return self._update_routing_state(new_potential, best_neighbor)
 
     def _tick_link_state(self) -> bool:
         active_now = self.get_active_neighbors()
