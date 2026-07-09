@@ -32,9 +32,22 @@ class MeshNetwork:
             if node.tick():
                 changed = True
                 
-        # Check if there are pending messages to process in the next tick (LSA or DSDV)
+        # Check if there are pending messages to process in the next tick (LSA, DSDV, or AODV)
         packets_in_flight = any(
-            len(node.incoming_lsas) > 0 or len(node.incoming_dsdv_updates) > 0 
+            len(node.incoming_lsas) > 0 or 
+            len(node.incoming_dsdv_updates) > 0 or
+            len(node.incoming_aodv_packets) > 0
             for node in self.nodes.values()
         )
-        return changed or packets_in_flight
+        
+        # Keep ticking if any AODV node is actively searching for a route (i.e. has no active route to EXIT)
+        searching_route = any(
+            node.routing_mode == "aodv" and not node.is_exit and 
+            not any(
+                active for dest, (_, _, _, active) in node.aodv_routing_table.items()
+                if "EXIT" in dest or dest.startswith("EX")
+            )
+            for node in self.nodes.values()
+        )
+        
+        return changed or packets_in_flight or searching_route

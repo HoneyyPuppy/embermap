@@ -43,7 +43,6 @@ class LinkStateRouting:
         if start_node in exits:
             return 0, None
             
-        # queue elements: (path_cost, current_node, first_hop_on_path)
         queue = [(0, start_node, None)]
         visited: Set[str] = set()
         
@@ -83,3 +82,9 @@ class DSDVRouting:
         elif new_seq == current_seq:
             return new_metric < current_metric
         return False
+
+
+class AODVRouting:
+    """State definition and helper classes for AODV routing packets."""
+    # AODV relies on packet processing rather than numeric distance vector updates.
+    pass

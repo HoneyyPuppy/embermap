@@ -48,3 +48,4 @@ if __name__ == "__main__":
     simulate_algorithm("gradient")
     simulate_algorithm("link_state")
     simulate_algorithm("dsdv")
+    simulate_algorithm("aodv")
