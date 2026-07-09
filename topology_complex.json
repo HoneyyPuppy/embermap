@@ -1,0 +1,39 @@
+{
+  "nodes": {
+    "EXIT_G1": {"is_exit": true},
+    "EXIT_G2": {"is_exit": true},
+    "F1_Stairs_East": {},
+    "F1_Stairs_West": {},
+    "F1_N1": {},
+    "F1_N2": {},
+    "F2_Stairs_East": {},
+    "F2_Stairs_West": {},
+    "F2_N1": {},
+    "F2_N2": {},
+    "F3_Stairs_East": {},
+    "F3_Stairs_West": {},
+    "F3_N1": {},
+    "F3_N2": {}
+  },
+  "links": [
+    ["F1_Stairs_East", "EXIT_G1"],
+    ["F1_Stairs_West", "EXIT_G2"],
+    ["F1_N1", "F1_Stairs_West"],
+    ["F1_N2", "F1_Stairs_East"],
+    ["F1_N1", "F1_N2"],
+    
+    ["F2_N1", "F2_Stairs_West"],
+    ["F2_N2", "F2_Stairs_East"],
+    ["F2_N1", "F2_N2"],
+    
+    ["F3_N1", "F3_Stairs_West"],
+    ["F3_N2", "F3_Stairs_East"],
+    ["F3_N1", "F3_N2"],
+    
+    ["F3_Stairs_West", "F2_Stairs_West"],
+    ["F2_Stairs_West", "F1_Stairs_West"],
+    
+    ["F3_Stairs_East", "F2_Stairs_East"],
+    ["F2_Stairs_East", "F1_Stairs_East"]
+  ]
+}

@@ -97,14 +97,13 @@ class RPLNode(Node):
             if new_rank != self.rank or self.preferred_parent != new_parent:
                 self.rank = new_rank
                 self.preferred_parent = new_parent
-                self.cost = new_rank
-                self.points_to = new_parent
+                
+                # Trigger console logger state outputs (this will update self.cost and self.points_to)
+                self._update_routing_state(new_rank, new_parent)
                 
                 # Advertise our rank change to downstream nodes immediately
                 self.broadcast_dio()
                 
-                # Trigger console logger state outputs
-                self._update_routing_state(new_rank, new_parent)
                 return True
 
         # Periodic trickle DIO pings (simulating RPL trickle timers)
