@@ -13,7 +13,23 @@ def simulate_algorithm(routing_mode: str):
     tick_count = 1
     max_ticks = 50
     print("[PHASE 1] Network Convergence Started...")
-    while network.tick() and tick_count <= max_ticks:
+    
+    state_history = []
+    while tick_count <= max_ticks:
+        snapshot = {name: (node.cost, node.points_to.id if node.points_to else None) 
+                    for name, node in network.nodes.items()}
+        state_history.append(snapshot)
+        if len(state_history) > 10:
+            state_history.pop(0)
+            
+        # Check stability over a larger window (8 ticks) to allow periodic/cooldown cycles to run
+        if len(state_history) >= 8 and all(state_history[i] == state_history[0] for i in range(1, len(state_history))):
+            print(f"  > Convergence stabilized. Terminating simulation early.")
+            break
+            
+        if not network.tick():
+            break
+            
         print(f"  > Tick {tick_count} complete.")
         tick_count += 1
         time.sleep(0.05)
@@ -32,7 +48,23 @@ def simulate_algorithm(routing_mode: str):
     # 3. Re-converge network
     tick_count = 1
     print("[PHASE 3] Network Self-Healing / Recovery Started...")
-    while network.tick() and tick_count <= max_ticks:
+    
+    recovery_history = []
+    while tick_count <= max_ticks:
+        snapshot = {name: (node.cost, node.points_to.id if node.points_to else None) 
+                    for name, node in network.nodes.items()}
+        recovery_history.append(snapshot)
+        if len(recovery_history) > 10:
+            recovery_history.pop(0)
+            
+        # Check stability over a larger window (8 ticks) to allow healing paths to propagate
+        if len(recovery_history) >= 8 and all(recovery_history[i] == recovery_history[0] for i in range(1, len(recovery_history))):
+            print(f"  > Recovery stabilized. Terminating simulation early.")
+            break
+            
+        if not network.tick():
+            break
+            
         print(f"  > Recovery Tick {tick_count} complete.")
         tick_count += 1
         time.sleep(0.05)
@@ -52,3 +84,4 @@ if __name__ == "__main__":
     simulate_algorithm("dsdv")
     simulate_algorithm("aodv")
     simulate_algorithm("potential_field")
+    simulate_algorithm("rpl")

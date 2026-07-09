@@ -6,6 +6,7 @@ from escapemesh.core.link_state_node import LinkStateNode
 from escapemesh.core.dsdv_node import DSDVNode
 from escapemesh.core.aodv_node import AODVNode
 from escapemesh.core.potential_field_node import PotentialFieldNode
+from escapemesh.core.rpl_node import RPLNode
 
 class MeshNetwork:
     """Manages collection of nodes and simulation execution."""
@@ -25,7 +26,8 @@ class MeshNetwork:
             "link_state": LinkStateNode,
             "dsdv": DSDVNode,
             "aodv": AODVNode,
-            "potential_field": PotentialFieldNode
+            "potential_field": PotentialFieldNode,
+            "rpl": RPLNode
         }
         node_class = node_classes.get(routing_mode, GradientNode)
             
@@ -43,15 +45,20 @@ class MeshNetwork:
         Returns True if routing states changed OR if packets are still in flight.
         """
         changed = False
+        # Run keepalives and ticks sequentially
+        for node in list(self.nodes.values()):
+            node.pre_tick()
+            
         for node in list(self.nodes.values()):
             if node.tick():
                 changed = True
                 
-        # Check if there are pending messages to process in the next tick (LSA, DSDV, or AODV)
+        # Check if there are pending messages to process in the next tick (LSA, DSDV, AODV, or RPL DIO)
         packets_in_flight = any(
             len(getattr(node, 'incoming_lsas', [])) > 0 or 
             len(getattr(node, 'incoming_dsdv_updates', [])) > 0 or
-            len(getattr(node, 'incoming_aodv_packets', [])) > 0
+            len(getattr(node, 'incoming_aodv_packets', [])) > 0 or
+            len(getattr(node, 'incoming_dios', [])) > 0
             for node in self.nodes.values()
         )
         

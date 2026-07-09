@@ -4,4 +4,5 @@ from escapemesh.core.link_state_node import LinkStateNode
 from escapemesh.core.dsdv_node import DSDVNode
 from escapemesh.core.aodv_node import AODVNode
 from escapemesh.core.potential_field_node import PotentialFieldNode
+from escapemesh.core.rpl_node import RPLNode
 from escapemesh.core.network import MeshNetwork
