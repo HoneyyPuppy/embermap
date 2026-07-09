@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="EscapeMesh — Smart IoT Fire Evacuation Mesh Network Simulator" />
+  <title>EscapeMesh — IoT Evacuation Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- Header -->
+  <header id="header">
+    <div class="header-left">
+      <span class="logo-icon">🔥</span>
+      <h1>EscapeMesh</h1>
+      <span class="subtitle">IoT Evacuation Simulator</span>
+    </div>
+    <div class="header-right">
+      <select id="protocol-select">
+        <option value="gradient">Gradient Field</option>
+        <option value="link_state">Link-State</option>
+        <option value="dsdv">DSDV</option>
+        <option value="aodv">AODV</option>
+        <option value="potential_field">Potential Field</option>
+        <option value="rpl">RPL (DODAG)</option>
+      </select>
+      <button id="btn-converge" class="btn btn-primary">▶ Converge</button>
+      <button id="btn-reset" class="btn btn-ghost">↺ Reset</button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div id="main">
+    <!-- Floor Navigation Pills -->
+    <nav id="floor-nav">
+      <button class="floor-pill active" data-floor="0">Ground</button>
+      <button class="floor-pill" data-floor="1">Floor 1</button>
+      <button class="floor-pill" data-floor="2">Floor 2</button>
+      <button class="floor-pill" data-floor="3">Floor 3</button>
+      <button class="floor-pill" data-floor="4">Floor 4</button>
+      <button class="floor-pill" data-floor="5">Floor 5</button>
+    </nav>
+
+    <div id="content-area">
+      <!-- SVG Floor Viewport -->
+      <div id="floor-viewport">
+        <div id="floor-slider">
+          <!-- 5 floor SVGs will be injected here by JS -->
+        </div>
+      </div>
+
+      <!-- Info Sidebar -->
+      <aside id="info-panel">
+        <div class="panel-section">
+          <h3>Status</h3>
+          <div id="status-display">
+            <div class="status-row"><span class="status-label">Protocol</span><span id="status-protocol" class="status-value">—</span></div>
+            <div class="status-row"><span class="status-label">State</span><span id="status-state" class="status-value">Idle</span></div>
+            <div class="status-row"><span class="status-label">Tick</span><span id="status-tick" class="status-value">—</span></div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>Selected Node</h3>
+          <div id="node-info">
+            <p class="hint">Hover over a node to inspect</p>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>Floor Routing Table</h3>
+          <div id="routing-table">
+            <p class="hint">Run convergence first</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Tooltip -->
+  <div id="tooltip" class="tooltip hidden"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
