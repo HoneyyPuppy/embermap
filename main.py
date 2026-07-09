@@ -1,38 +1,49 @@
 import time
 from escapemesh.core.network import MeshNetwork
 
-def run_simulation():
-    print("--- STARTING MODULAR ESCAPEMESH SIMULATION ---")
-    network = MeshNetwork()
-    network.load_from_topology("topology.json")
+def simulate_algorithm(routing_mode: str):
+    print(f"\n==================================================")
+    print(f" RUNNING SIMULATION: {routing_mode.upper()} ROUTING ")
+    print(f"==================================================")
     
-    # Converge network
+    network = MeshNetwork()
+    network.load_from_topology("topology.json", routing_mode=routing_mode)
+    
+    # 1. Converge network
     tick_count = 1
-    while network.tick():
-        print(f"Network convergence tick {tick_count}...")
+    max_ticks = 50
+    print("[PHASE 1] Network Convergence Started...")
+    while network.tick() and tick_count <= max_ticks:
+        print(f"  > Tick {tick_count} complete.")
         tick_count += 1
         time.sleep(0.05)
         
-    print("\n--- STABLE STATE ---")
-    for name, node in network.nodes.items():
+    print("\n--- INITIAL STABLE ROUTING TABLE ---")
+    for name in sorted(network.nodes.keys()):
+        node = network.nodes[name]
         nxt = node.points_to.id if node.points_to else "None"
-        print(f"Node {name} -> Cost: {node.cost}, Next Hop: {nxt}")
+        print(f"  Node {name:6} | Cost: {node.cost:3} | Next Hop: {nxt}")
         
-    # Trigger fire
-    print("\n--- TRIGGERING FIRE ON N2 ---")
+    # 2. Trigger fire on N2 (Breaks path to EXIT for N1)
+    print("\n[PHASE 2] Simulating Incident: Fire Detected on N2...")
     network.nodes["N2"].trigger_fire()
     
-    # Re-converge network
+    # 3. Re-converge network
     tick_count = 1
-    while network.tick():
-        print(f"Network recovery tick {tick_count}...")
+    print("[PHASE 3] Network Self-Healing / Recovery Started...")
+    while network.tick() and tick_count <= max_ticks:
+        print(f"  > Recovery Tick {tick_count} complete.")
         tick_count += 1
         time.sleep(0.05)
         
-    print("\n--- POST-FIRE STABLE STATE ---")
-    for name, node in network.nodes.items():
+    print("\n--- POST-FIRE STABLE ROUTING TABLE ---")
+    for name in sorted(network.nodes.keys()):
+        node = network.nodes[name]
         nxt = node.points_to.id if node.points_to else "None"
-        print(f"Node {name} -> Cost: {node.cost}, Next Hop: {nxt}")
+        print(f"  Node {name:6} | Cost: {node.cost:3} | Next Hop: {nxt}")
+
 
 if __name__ == "__main__":
-    run_simulation()
+    # Simulate both to compare behaviour
+    simulate_algorithm("gradient")
+    simulate_algorithm("link_state")
