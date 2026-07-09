@@ -1,5 +1,7 @@
 import time
+import sys
 from escapemesh.core.network import MeshNetwork
+from escapemesh.utils.logger import Tee
 
 def simulate_complex_building(routing_mode: str):
     print(f"\n==================================================")
@@ -32,13 +34,12 @@ def simulate_complex_building(routing_mode: str):
         tick_count += 1
         time.sleep(0.02)
         
-    print("\n--- INITIAL STABLE ROUTING TABLE (FLOOR 3 SELECTED) ---")
+    print("\n--- INITIAL STABLE ROUTING TABLE (ALL NODES) ---")
     for name in sorted(network.nodes.keys()):
-        if name.startswith("F3_"):
-            node = network.nodes[name]
-            nxt = node.points_to.id if node.points_to else "None"
-            cost_str = f"{node.cost:.1f}" if isinstance(node.cost, float) else f"{node.cost}"
-            print(f"  Node {name:15} | Cost/Rank: {cost_str:5} | Next Hop: {nxt}")
+        node = network.nodes[name]
+        nxt = node.points_to.id if node.points_to else "None"
+        cost_str = f"{node.cost:.1f}" if isinstance(node.cost, float) else f"{node.cost}"
+        print(f"  Node {name:20} | Cost/Rank: {cost_str:5} | Next Hop: {nxt}")
             
     # 2. Fire breaks out on Floor 2 West Stairs (blocking West descent)
     print("\n[PHASE 2] Incident: Fire detected on Floor 2 West Stairs (F2_Stairs_West)!")
@@ -66,15 +67,17 @@ def simulate_complex_building(routing_mode: str):
         tick_count += 1
         time.sleep(0.02)
         
-    print("\n--- POST-FIRE STABLE ROUTING TABLE (FLOOR 3 SELECTED) ---")
+    print("\n--- POST-FIRE STABLE ROUTING TABLE (ALL NODES) ---")
     for name in sorted(network.nodes.keys()):
-        if name.startswith("F3_") or name == "F2_Stairs_West":
-            node = network.nodes[name]
-            nxt = node.points_to.id if node.points_to else "None"
-            cost_str = f"{node.cost:.1f}" if isinstance(node.cost, float) else f"{node.cost}"
-            print(f"  Node {name:15} | Cost/Rank: {cost_str:5} | Next Hop: {nxt}")
+        node = network.nodes[name]
+        nxt = node.points_to.id if node.points_to else "None"
+        cost_str = f"{node.cost:.1f}" if isinstance(node.cost, float) else f"{node.cost}"
+        print(f"  Node {name:20} | Cost/Rank: {cost_str:5} | Next Hop: {nxt}")
 
 if __name__ == "__main__":
+    # Setup Tee logging to capture everything to a file while keeping console output
+    sys.stdout = Tee("logs/simulation_complex.log")
+    
     # Test complex floor-to-floor rerouting on selected protocols
     simulate_complex_building("gradient")
     simulate_complex_building("rpl")

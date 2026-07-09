@@ -1,5 +1,7 @@
 import time
+import sys
 from escapemesh.core.network import MeshNetwork
+from escapemesh.utils.logger import Tee
 
 def simulate_algorithm(routing_mode: str):
     print(f"\n==================================================")
@@ -78,6 +80,9 @@ def simulate_algorithm(routing_mode: str):
 
 
 if __name__ == "__main__":
+    # Setup Tee logging to stdout and file
+    sys.stdout = Tee("logs/simulation_basic.log")
+    
     # Simulate routing algorithms to compare behaviour
     simulate_algorithm("gradient")
     simulate_algorithm("link_state")
