@@ -1,12 +1,12 @@
 import json
 from typing import Dict
 from escapemesh.core.base_node import Node
-from escapemesh.core.gradient_node import GradientNode
-from escapemesh.core.link_state_node import LinkStateNode
-from escapemesh.core.dsdv_node import DSDVNode
-from escapemesh.core.aodv_node import AODVNode
-from escapemesh.core.potential_field_node import PotentialFieldNode
-from escapemesh.core.rpl_node import RPLNode
+from escapemesh.nodes.gradient_node import GradientNode
+from escapemesh.nodes.link_state_node import LinkStateNode
+from escapemesh.nodes.dsdv_node import DSDVNode
+from escapemesh.nodes.aodv_node import AODVNode
+from escapemesh.nodes.potential_field_node import PotentialFieldNode
+from escapemesh.nodes.rpl_node import RPLNode
 
 class MeshNetwork:
     """Manages collection of nodes and simulation execution."""

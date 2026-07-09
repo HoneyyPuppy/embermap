@@ -7,7 +7,7 @@ def simulate_algorithm(routing_mode: str):
     print(f"==================================================")
     
     network = MeshNetwork()
-    network.load_from_topology("topology.json", routing_mode=routing_mode)
+    network.load_from_topology("topologies/topology.json", routing_mode=routing_mode)
     
     # 1. Converge network
     tick_count = 1

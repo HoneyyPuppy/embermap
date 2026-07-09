@@ -7,7 +7,7 @@ def simulate_complex_building(routing_mode: str):
     print(f"==================================================")
     
     network = MeshNetwork()
-    network.load_from_topology("topology_complex.json", routing_mode=routing_mode)
+    network.load_from_topology("topologies/topology_complex.json", routing_mode=routing_mode)
     
     # 1. Initial Convergence
     tick_count = 1
