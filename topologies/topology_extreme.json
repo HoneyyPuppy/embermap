@@ -1,0 +1,70 @@
+{
+  "nodes": {
+    "EXIT_G1": {"is_exit": true},
+    "EXIT_G2": {"is_exit": true},
+    
+    "F1_Stairs_E": {},
+    "F1_Stairs_W": {},
+    "F1_Stairs_C": {},
+    "F1_H1": {},
+    "F1_H2": {},
+    
+    "F2_Stairs_E": {},
+    "F2_Stairs_W": {},
+    "F2_Stairs_C": {},
+    "F2_H1": {},
+    "F2_H2": {},
+    "F2_DeadEnd_R1": {},
+    
+    "F3_Stairs_E": {},
+    "F3_Stairs_W": {},
+    "F3_L1": {},
+    "F3_L2": {},
+    "F3_L3": {},
+    "F3_L4": {},
+    "F3_DeadEnd_R1": {},
+    
+    "F4_Stairs_E": {},
+    "F4_Stairs_W": {},
+    "F4_R1": {},
+    "F4_R2": {},
+    "F4_DeadEnd_R1": {}
+  },
+  "links": [
+    ["F4_Stairs_E", "F3_Stairs_E"],
+    ["F3_Stairs_E", "F2_Stairs_E"],
+    ["F2_Stairs_E", "F1_Stairs_E"],
+    ["F1_Stairs_E", "EXIT_G1"],
+    
+    ["F4_Stairs_W", "F3_Stairs_W"],
+    ["F3_Stairs_W", "F2_Stairs_W"],
+    ["F2_Stairs_W", "F1_Stairs_W"],
+    ["F1_Stairs_W", "EXIT_G2"],
+    
+    ["F2_Stairs_C", "F1_Stairs_C"],
+    
+    ["F4_R1", "F4_Stairs_W"],
+    ["F4_R2", "F4_Stairs_E"],
+    ["F4_R1", "F4_R2"],
+    ["F4_DeadEnd_R1", "F4_R1"],
+    
+    ["F3_L1", "F3_L2"],
+    ["F3_L2", "F3_L3"],
+    ["F3_L3", "F3_L4"],
+    ["F3_L4", "F3_L1"],
+    ["F3_L1", "F3_Stairs_W"],
+    ["F3_L3", "F3_Stairs_E"],
+    ["F3_DeadEnd_R1", "F3_L2"],
+    
+    ["F2_H1", "F2_Stairs_W"],
+    ["F2_H2", "F2_Stairs_E"],
+    ["F2_H1", "F2_Stairs_C"],
+    ["F2_H2", "F2_Stairs_C"],
+    ["F2_DeadEnd_R1", "F2_H1"],
+    
+    ["F1_H1", "F1_Stairs_W"],
+    ["F1_H2", "F1_Stairs_E"],
+    ["F1_Stairs_C", "F1_H1"],
+    ["F1_Stairs_C", "F1_H2"]
+  ]
+}

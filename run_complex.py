@@ -78,7 +78,10 @@ if __name__ == "__main__":
     # Setup Tee logging to capture everything to a file while keeping console output
     sys.stdout = Tee("logs/simulation_complex.log")
     
-    # Test complex floor-to-floor rerouting on selected protocols
+    # Test complex floor-to-floor rerouting on all 6 routing algorithms
     simulate_complex_building("gradient")
-    simulate_complex_building("rpl")
+    simulate_complex_building("link_state")
+    simulate_complex_building("dsdv")
     simulate_complex_building("aodv")
+    simulate_complex_building("potential_field")
+    simulate_complex_building("rpl")
