@@ -1,6 +1,11 @@
 import json
 from typing import Dict
-from escapemesh.core.node import Node
+from escapemesh.core.base_node import Node
+from escapemesh.core.gradient_node import GradientNode
+from escapemesh.core.link_state_node import LinkStateNode
+from escapemesh.core.dsdv_node import DSDVNode
+from escapemesh.core.aodv_node import AODVNode
+from escapemesh.core.potential_field_node import PotentialFieldNode
 
 class MeshNetwork:
     """Manages collection of nodes and simulation execution."""
@@ -9,13 +14,23 @@ class MeshNetwork:
         self.nodes: Dict[str, Node] = {}
 
     def load_from_topology(self, filepath: str, routing_mode: str = "gradient"):
-        """Loads and parses JSON topology file with the chosen routing algorithm."""
+        """Loads and parses JSON topology file instantiating the matching Node subclass."""
         self.nodes.clear()
         with open(filepath, 'r') as f:
             data = json.load(f)
             
+        # Select Node class based on algorithm mode
+        node_classes = {
+            "gradient": GradientNode,
+            "link_state": LinkStateNode,
+            "dsdv": DSDVNode,
+            "aodv": AODVNode,
+            "potential_field": PotentialFieldNode
+        }
+        node_class = node_classes.get(routing_mode, GradientNode)
+            
         for name, props in data.get("nodes", {}).items():
-            self.nodes[name] = Node(name, props.get("is_exit", False), routing_mode=routing_mode)
+            self.nodes[name] = node_class(name, props.get("is_exit", False))
             
         for n1, n2 in data.get("links", []):
             if n1 in self.nodes and n2 in self.nodes:
@@ -34,15 +49,15 @@ class MeshNetwork:
                 
         # Check if there are pending messages to process in the next tick (LSA, DSDV, or AODV)
         packets_in_flight = any(
-            len(node.incoming_lsas) > 0 or 
-            len(node.incoming_dsdv_updates) > 0 or
-            len(node.incoming_aodv_packets) > 0
+            len(getattr(node, 'incoming_lsas', [])) > 0 or 
+            len(getattr(node, 'incoming_dsdv_updates', [])) > 0 or
+            len(getattr(node, 'incoming_aodv_packets', [])) > 0
             for node in self.nodes.values()
         )
         
         # Keep ticking if any AODV node is actively searching for a route (i.e. has no active route to EXIT)
         searching_route = any(
-            node.routing_mode == "aodv" and not node.is_exit and 
+            isinstance(node, AODVNode) and not node.is_exit and 
             not any(
                 active for dest, (_, _, _, active) in node.aodv_routing_table.items()
                 if "EXIT" in dest or dest.startswith("EX")
