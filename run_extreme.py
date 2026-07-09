@@ -36,8 +36,8 @@ def simulate_extreme_building(routing_mode: str):
         
     print("\n--- INITIAL STABLE ROUTING TABLE (DIVERSE INTERESTING NODES) ---")
     interest_nodes = [
-        "F4_DeadEnd_R1", "F4_R1", "F3_DeadEnd_R1", "F3_L2", "F3_L4", 
-        "F2_DeadEnd_R1", "F2_Stairs_C", "F1_Stairs_E", "F1_Stairs_W"
+        "F4_Dead1", "F4_H1", "F4_H16", "F3_Dead1", "F3_H1", "F3_H20", 
+        "F2_Dead1", "F2_Stairs_C", "F1_Stairs_E", "F1_Stairs_W"
     ]
     for name in interest_nodes:
         if name in network.nodes:
