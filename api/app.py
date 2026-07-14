@@ -47,6 +47,8 @@ class SimulateRequest(BaseModel):
     max_distance: float = 300.0
     fire_penalty: float = 0.4
     max_ticks: int = 80
+    delay_factor: float = 0.0
+    jitter_ticks: int = 0
 
 class FireRequest(BaseModel):
     node_id: str
@@ -122,7 +124,9 @@ def simulate(req: SimulateRequest):
     network = MeshNetwork(
         packet_loss_rate=req.packet_loss_rate,
         max_distance=req.max_distance,
-        fire_penalty=req.fire_penalty
+        fire_penalty=req.fire_penalty,
+        delay_factor=req.delay_factor,
+        jitter_ticks=req.jitter_ticks
     )
     network.load_from_topology(TOPOLOGY_PATH, routing_mode=req.protocol)
 
