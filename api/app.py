@@ -49,6 +49,7 @@ class SimulateRequest(BaseModel):
     max_ticks: int = 80
     delay_factor: float = 0.0
     jitter_ticks: int = 0
+    csma_enabled: bool = True
 
 class FireRequest(BaseModel):
     node_id: str
@@ -126,7 +127,8 @@ def simulate(req: SimulateRequest):
         max_distance=req.max_distance,
         fire_penalty=req.fire_penalty,
         delay_factor=req.delay_factor,
-        jitter_ticks=req.jitter_ticks
+        jitter_ticks=req.jitter_ticks,
+        csma_enabled=req.csma_enabled
     )
     network.load_from_topology(TOPOLOGY_PATH, routing_mode=req.protocol)
 
