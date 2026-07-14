@@ -149,3 +149,32 @@ select#protocol-select:focus { border-color: var(--accent); }
 .node-exit { animation: pulse-exit 2s ease-in-out infinite; }
 .node-fire { animation: pulse-fire 0.8s ease-in-out infinite; }
 .glow-ring { animation: glow-ring 2s infinite; pointer-events: none; }
+
+/* ── PER Model Settings ── */
+.setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.setting-row label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+}
+.setting-row label span {
+  color: var(--primary);
+  font-weight: 600;
+}
+.setting-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--primary);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+

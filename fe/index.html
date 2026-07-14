@@ -60,6 +60,24 @@
             <div class="status-row"><span class="status-label">State</span><span id="status-state" class="status-value">Idle</span></div>
             <div class="status-row"><span class="status-label">Tick</span><span id="status-tick" class="status-value">—</span></div>
           </div>
+        <div class="panel-section">
+          <h3>PER Model Settings</h3>
+          <div class="setting-row">
+            <label for="per-loss-rate">Baseline Loss: <span id="val-loss-rate">0%</span></label>
+            <input type="range" id="per-loss-rate" min="0" max="100" value="0" step="5" />
+          </div>
+          <div class="setting-row">
+            <label for="per-max-dist">Max Range (px): <span id="val-max-dist">300</span></label>
+            <input type="range" id="per-max-dist" min="100" max="1000" value="300" step="25" />
+          </div>
+          <div class="setting-row">
+            <label for="per-fire-penalty">Fire Penalty: <span id="val-fire-penalty">40%</span></label>
+            <input type="range" id="per-fire-penalty" min="0" max="100" value="40" step="10" />
+          </div>
+          <div class="setting-row">
+            <label for="per-max-ticks">Max Ticks: <span id="val-max-ticks">80</span></label>
+            <input type="range" id="per-max-ticks" min="20" max="300" value="80" step="10" />
+          </div>
         </div>
 
         <div class="panel-section">

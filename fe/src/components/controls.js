@@ -31,8 +31,13 @@ export async function runConvergence() {
   setStatus('Protocol', protocol);
   setStatus('State', 'Converging…');
 
+  const lossRate = parseFloat(document.getElementById('per-loss-rate').value) / 100;
+  const maxDistance = parseFloat(document.getElementById('per-max-dist').value);
+  const firePenalty = parseFloat(document.getElementById('per-fire-penalty').value) / 100;
+  const maxTicks = parseInt(document.getElementById('per-max-ticks').value);
+
   try {
-    const data = await runSimulation(protocol);
+    const data = await runSimulation(protocol, lossRate, maxDistance, firePenalty, maxTicks);
     await playTimeline(data.timeline, 'Converging');
 
     state.converged = true;
@@ -126,6 +131,39 @@ export function handleNodeClick(nodeId) {
 export function bindControls() {
   document.getElementById('btn-converge').addEventListener('click', runConvergence);
   document.getElementById('btn-reset').addEventListener('click', doReset);
+
+  // Bind PER Settings sliders
+  const sliderLoss = document.getElementById('per-loss-rate');
+  const spanLoss = document.getElementById('val-loss-rate');
+  if (sliderLoss && spanLoss) {
+    sliderLoss.addEventListener('input', () => {
+      spanLoss.textContent = `${sliderLoss.value}%`;
+    });
+  }
+
+  const sliderDist = document.getElementById('per-max-dist');
+  const spanDist = document.getElementById('val-max-dist');
+  if (sliderDist && spanDist) {
+    sliderDist.addEventListener('input', () => {
+      spanDist.textContent = sliderDist.value;
+    });
+  }
+
+  const sliderFire = document.getElementById('per-fire-penalty');
+  const spanFire = document.getElementById('val-fire-penalty');
+  if (sliderFire && spanFire) {
+    sliderFire.addEventListener('input', () => {
+      spanFire.textContent = `${sliderFire.value}%`;
+    });
+  }
+
+  const sliderTicks = document.getElementById('per-max-ticks');
+  const spanTicks = document.getElementById('val-max-ticks');
+  if (sliderTicks && spanTicks) {
+    sliderTicks.addEventListener('input', () => {
+      spanTicks.textContent = sliderTicks.value;
+    });
+  }
 
   document.querySelectorAll('.floor-pill').forEach((pill) => {
     pill.addEventListener('click', () => goToFloor(parseInt(pill.dataset.floor)));
