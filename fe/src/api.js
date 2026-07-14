@@ -6,7 +6,7 @@ export async function fetchTopology() {
   return await res.json();
 }
 
-export async function runSimulation(protocol, lossRate = 0.0, maxDistance = 300.0, firePenalty = 0.4, maxTicks = 80) {
+export async function runSimulation(protocol, lossRate = 0.0, maxDistance = 300.0, firePenalty = 0.4, maxTicks = 80, delayFactor = 0.0, jitterTicks = 0) {
   const res = await fetch(`${API}/api/simulate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -15,7 +15,9 @@ export async function runSimulation(protocol, lossRate = 0.0, maxDistance = 300.
       packet_loss_rate: lossRate,
       max_distance: maxDistance,
       fire_penalty: firePenalty,
-      max_ticks: maxTicks
+      max_ticks: maxTicks,
+      delay_factor: delayFactor,
+      jitter_ticks: jitterTicks
     }),
   });
   if (!res.ok) throw new Error('Simulation API error');

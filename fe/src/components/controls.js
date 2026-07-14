@@ -35,9 +35,11 @@ export async function runConvergence() {
   const maxDistance = parseFloat(document.getElementById('per-max-dist').value);
   const firePenalty = parseFloat(document.getElementById('per-fire-penalty').value) / 100;
   const maxTicks = parseInt(document.getElementById('per-max-ticks').value);
+  const delayFactor = parseFloat(document.getElementById('per-delay-factor').value);
+  const jitterTicks = parseInt(document.getElementById('per-jitter-ticks').value);
 
   try {
-    const data = await runSimulation(protocol, lossRate, maxDistance, firePenalty, maxTicks);
+    const data = await runSimulation(protocol, lossRate, maxDistance, firePenalty, maxTicks, delayFactor, jitterTicks);
     await playTimeline(data.timeline, 'Converging');
 
     state.converged = true;
@@ -162,6 +164,22 @@ export function bindControls() {
   if (sliderTicks && spanTicks) {
     sliderTicks.addEventListener('input', () => {
       spanTicks.textContent = sliderTicks.value;
+    });
+  }
+
+  const sliderDelay = document.getElementById('per-delay-factor');
+  const spanDelay = document.getElementById('val-delay-factor');
+  if (sliderDelay && spanDelay) {
+    sliderDelay.addEventListener('input', () => {
+      spanDelay.textContent = parseFloat(sliderDelay.value).toFixed(1);
+    });
+  }
+
+  const sliderJitter = document.getElementById('per-jitter-ticks');
+  const spanJitter = document.getElementById('val-jitter-ticks');
+  if (sliderJitter && spanJitter) {
+    sliderJitter.addEventListener('input', () => {
+      spanJitter.textContent = sliderJitter.value;
     });
   }
 
