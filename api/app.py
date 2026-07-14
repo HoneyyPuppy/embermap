@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 # Add project root to path so we can import escapemesh
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from escapemesh.core.network import MeshNetwork
+from escapemesh.core.network import MeshNetwork, generate_positions
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -39,191 +39,14 @@ TOPOLOGY_PATH = os.path.join(
 )
 
 # ---------------------------------------------------------------------------
-# Node positions for frontend SVG rendering (per-floor layout)
-# ---------------------------------------------------------------------------
-def generate_positions(node_ids) -> Dict[str, Dict[str, Any]]:
-    positions = {}
-    for nid in node_ids:
-        if nid == "EXIT_W":
-            positions[nid] = {"floor": 0, "x": 30, "y": 150, "type": "exit", "label": "Exit W"}
-            continue
-        if nid == "EXIT_E":
-            positions[nid] = {"floor": 0, "x": 890, "y": 150, "type": "exit", "label": "Exit E"}
-            continue
-            
-        parts = nid.split("_")
-        if len(parts) < 2:
-            continue
-            
-        floor_str = parts[0]
-        try:
-            floor = int(floor_str[1:])
-        except ValueError:
-            floor = 1
-            
-        ntype_name = parts[1]
-        x = 500
-        y = 150
-        ntype = "hallway"
-        label = nid
-        
-        if ntype_name == "Stairs":
-            ntype = "stairs"
-            suffix = parts[2] if len(parts) > 2 else "C"
-            label = f"Stairs {suffix}"
-            if suffix == "W":
-                x = 80
-                if floor == 3:
-                    y = 170
-                else:
-                    y = 150
-            elif suffix == "C":
-                if floor == 5:
-                    x = 440
-                    y = 80
-                elif floor == 4:
-                    x = 575
-                    y = 240
-                elif floor == 3:
-                    x = 320
-                    y = 280
-                elif floor == 2:
-                    x = 440
-                    y = 230
-                elif floor == 1:
-                    x = 400
-                    y = 230
-            elif suffix == "E":
-                if floor == 5:
-                    x = 890
-                    y = 150
-                elif floor == 4:
-                    x = 890
-                    y = 150
-                elif floor == 3:
-                    x = 575
-                    y = 240
-                elif floor == 2:
-                    x = 720
-                    y = 290
-                elif floor == 1:
-                    x = 840
-                    y = 150
-                    
-        elif ntype_name.startswith("H"):
-            try:
-                idx = int(ntype_name[1:])
-            except ValueError:
-                idx = 1
-            label = f"H{idx}"
-            
-            if floor == 5:
-                if 1 <= idx <= 12:
-                    x = 125 + (idx - 1) * 45
-                    y = 180
-                elif 18 <= idx <= 22:
-                    x = 665 + (idx - 18) * 45
-                    y = 180
-                elif idx in (13, 14, 15):
-                    x = 215 + (idx - 13) * 45
-                    y = 90
-                elif idx in (16, 17):
-                    x = 575 + (idx - 16) * 45
-                    y = 90
-            elif floor == 4:
-                if 1 <= idx <= 11:
-                    x = 125 + (idx - 1) * 45
-                    y = 150
-                elif idx in (13, 14):
-                    x = 620 + (idx - 13) * 45
-                    y = 150
-                elif 19 <= idx <= 21:
-                    x = 710 + (idx - 19) * 45
-                    y = 150
-                elif idx in (15, 16):
-                    if idx == 16:
-                        x = 260
-                    else:
-                        x = 215
-                    y = 240
-                elif idx in (17, 18):
-                    if idx == 18:
-                        x = 395
-                    else:
-                        x = 350
-                    y = 240
-                elif 22 <= idx <= 24:
-                    x = 575 + (idx - 21) * 45
-                    y = 240
-            elif floor == 3:
-                if 1 <= idx <= 10:
-                    x = 125 + (idx - 1) * 45
-                    y = 120
-                elif 11 <= idx <= 20:
-                    x = 125 + (20 - idx) * 45
-                    y = 220
-                elif idx in (21, 22):
-                    x = 575 + (idx - 21) * 45
-                    y = 170
-            elif floor == 2:
-                if 1 <= idx <= 11:
-                    x = 120 + (idx - 1) * 40
-                    y = 150
-                elif 13 <= idx <= 20:
-                    x = 560 + (idx - 13) * 40
-                    y = 150
-                elif 21 <= idx <= 23:
-                    x = 200 + (idx - 21) * 40
-                    y = 230
-                elif 24 <= idx <= 27:
-                    x = 680 + (idx - 24) * 40
-                    y = 230
-            elif floor == 1:
-                if 1 <= idx <= 14:
-                    x = 120 + (idx - 1) * 40
-                    y = 150
-                elif 16 <= idx <= 18:
-                    x = 680 + (idx - 16) * 40
-                    y = 150
-                elif idx == 20:
-                    x = 800
-                    y = 150
-                elif idx in (21, 22):
-                    x = 320 + (idx - 21) * 40
-                    y = 230
-                elif idx in (23, 24):
-                    x = 720 + (idx - 23) * 40
-                    y = 230
-        elif ntype_name.startswith("Dead"):
-            ntype = "deadend"
-            label = "Dead End"
-            if floor == 5:
-                x = 350
-                y = 90
-            elif floor == 4:
-                if "1" in nid:
-                    x = 170
-                else:
-                    x = 440
-                y = 240
-            elif floor == 3:
-                x = 665
-                y = 170
-            elif floor == 2:
-                x = 320
-                y = 230
-            elif floor == 1:
-                x = 800
-                y = 230
-                
-        positions[nid] = {"floor": floor, "x": x, "y": y, "type": ntype, "label": label}
-    return positions
-
-# ---------------------------------------------------------------------------
 # Pydantic request models
 # ---------------------------------------------------------------------------
 class SimulateRequest(BaseModel):
     protocol: str = "gradient"
+    packet_loss_rate: float = 0.0
+    max_distance: float = 300.0
+    fire_penalty: float = 0.4
+    max_ticks: int = 80
 
 class FireRequest(BaseModel):
     node_id: str
@@ -291,15 +114,19 @@ def get_topology():
 
 @app.post("/api/simulate")
 def simulate(req: SimulateRequest):
-    """Initialize network with chosen protocol and run convergence."""
+    """Initialize network with chosen protocol and run convergence with customizable PER parameters."""
     valid_protocols = ["gradient", "link_state", "dsdv", "aodv", "potential_field", "rpl"]
     if req.protocol not in valid_protocols:
         raise HTTPException(400, f"Invalid protocol. Choose from: {valid_protocols}")
 
-    network = MeshNetwork()
+    network = MeshNetwork(
+        packet_loss_rate=req.packet_loss_rate,
+        max_distance=req.max_distance,
+        fire_penalty=req.fire_penalty
+    )
     network.load_from_topology(TOPOLOGY_PATH, routing_mode=req.protocol)
 
-    timeline, converged, ticks_taken = _run_ticks(network, max_ticks=80, stability_window=8)
+    timeline, converged, ticks_taken = _run_ticks(network, max_ticks=req.max_ticks, stability_window=8)
 
     # Store network for subsequent fire calls
     state["network"] = network
