@@ -5,20 +5,23 @@ from escapemesh.utils.logger import ColorLogger
 INF = 999
 
 class JacobiQueue(list):
-    """List subclass that stages appends during a tick and releases them at the beginning of the next tick."""
+    """List subclass that stages appends during a tick and releases them at their scheduled delivery tick."""
     def __init__(self, receiver: 'Node' = None):
         super().__init__()
-        self.staged = []
+        self.staged = []  # Contains tuples of (delivery_tick, item)
         self.receiver = receiver
 
     def append(self, item):
-        # Fallback to default staging if sender is unknown
-        self.staged.append(item)
+        # Fallback to default staging (instant next-tick delivery) if sender is unknown
+        current_tick = getattr(self.receiver, 'tick_counter', 0)
+        self.staged.append((current_tick + 1, item))
 
     def append_from(self, sender: 'Node', item):
         if not self.receiver:
-            self.staged.append(item)
+            self.staged.append((1, item))
             return
+
+        current_tick = getattr(self.receiver, 'tick_counter', 0)
 
         # 1. Calculate physical 3D distance
         dx = sender.x - self.receiver.x
@@ -48,16 +51,48 @@ class JacobiQueue(list):
         if random.random() < per:
             return  # Packet dropped!
 
-        self.staged.append(item)
+        # 4. Calculate Propagation & Queue Occupancy Delay
+        delay_factor = getattr(self.receiver, 'delay_factor', 0.0)
+        jitter_ticks = getattr(self.receiver, 'jitter_ticks', 0)
+
+        # Distance Delay (ticks per 100px)
+        d_dist = int(d * delay_factor / 100)
+
+        # Random Jitter (randomly selected from [1, D_max] if D_max > 0, otherwise baseline of 1 tick)
+        d_jitter = random.randint(1, jitter_ticks) if jitter_ticks > 0 else 1
+
+        # Queue Occupancy Delay (+1 tick for every 5 backlogged packets in receiver's active queues)
+        queue_occupancy = (
+            len(getattr(self.receiver, 'incoming_lsas', [])) +
+            len(getattr(self.receiver, 'incoming_dsdv_updates', [])) +
+            len(getattr(self.receiver, 'incoming_aodv_packets', [])) +
+            len(getattr(self.receiver, 'incoming_dios', []))
+        )
+        d_queue = int(queue_occupancy / 5)
+
+        total_delay = d_dist + d_jitter + d_queue
+        delivery_tick = current_tick + total_delay
+
+        self.staged.append((delivery_tick, item))
 
     def extend(self, items):
-        # Treat as standard staged appends
-        self.staged.extend(items)
+        # Treat as standard staged appends with instant next-tick delivery
+        current_tick = getattr(self.receiver, 'tick_counter', 0)
+        for item in items:
+            self.staged.append((current_tick + 1, item))
 
-    def swap_staged_to_active(self):
+    def swap_staged_to_active(self, current_tick: int):
         super().clear()
-        super().extend(self.staged)
-        self.staged.clear()
+        
+        # Deliver expired packets whose delivery_tick has arrived
+        undelivered = []
+        for delivery_tick, item in self.staged:
+            if delivery_tick <= current_tick:
+                super().append(item)
+            else:
+                undelivered.append((delivery_tick, item))
+        
+        self.staged = undelivered
 
     def clear(self):
         super().clear()
@@ -73,10 +108,12 @@ class Node:
         self.on_fire = False
         self.packet_loss_rate = packet_loss_rate
         
-        # Physical coordinates
+        # Physical coordinates & delay settings
         self.x: float = 0.0
         self.y: float = 0.0
         self.floor: int = 0
+        self.delay_factor: float = 0.0
+        self.jitter_ticks: int = 0
         
         # Jacobi frozen states
         self.prev_cost: float = self.cost
@@ -122,11 +159,11 @@ class Node:
         self.prev_points_to = self.points_to
         self.prev_on_fire = self.on_fire
         
-        # Release staged packets for Jacobi synchronous message passing
-        self.incoming_lsas.swap_staged_to_active()
-        self.incoming_dsdv_updates.swap_staged_to_active()
-        self.incoming_aodv_packets.swap_staged_to_active()
-        self.incoming_dios.swap_staged_to_active()
+        # Release staged packets for Jacobi synchronous message passing (based on delivery schedule)
+        self.incoming_lsas.swap_staged_to_active(self.tick_counter)
+        self.incoming_dsdv_updates.swap_staged_to_active(self.tick_counter)
+        self.incoming_aodv_packets.swap_staged_to_active(self.tick_counter)
+        self.incoming_dios.swap_staged_to_active(self.tick_counter)
         
         # Broadcast keepalive ping to neighbors every 3 ticks with packet loss check
         if not self.on_fire:
