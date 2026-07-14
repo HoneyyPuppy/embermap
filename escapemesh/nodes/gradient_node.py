@@ -9,8 +9,8 @@ class GradientNode(Node):
         best_cost = float(INF)
         best_neighbor = None
         for n in self.neighbors:
-            if n.cost < best_cost:
-                best_cost = n.cost
+            if n.prev_cost < best_cost:
+                best_cost = n.prev_cost
                 best_neighbor = n
                 
         new_cost = best_cost + 1.0 if best_cost != INF else float(INF)

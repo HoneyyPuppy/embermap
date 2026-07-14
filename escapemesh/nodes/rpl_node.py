@@ -14,7 +14,6 @@ class RPLNode(Node):
         
         self.preferred_parent: Optional[Node] = None
         self.parent_set: Dict[str, float] = {}  # parent_node_id -> parent_rank
-        self.incoming_dios: List[Tuple[str, float]] = []  # queue of (sender_id, rank)
         self.rpl_tick_count = 0
         self.sequence_num = 0
 
