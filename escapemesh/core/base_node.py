@@ -8,20 +8,21 @@ class JacobiQueue(list):
     """List subclass that stages appends during a tick and releases them at their scheduled delivery tick."""
     def __init__(self, receiver: 'Node' = None):
         super().__init__()
-        self.staged = []  # Contains tuples of (delivery_tick, item)
+        self.staged = []  # Contains tuples of (delivery_tick, sender_id, item)
         self.receiver = receiver
 
     def append(self, item):
         # Fallback to default staging (instant next-tick delivery) if sender is unknown
         current_tick = getattr(self.receiver, 'tick_counter', 0)
-        self.staged.append((current_tick + 1, item))
+        self.staged.append((current_tick + 1, None, item))
 
     def append_from(self, sender: 'Node', item):
         if not self.receiver:
-            self.staged.append((1, item))
+            self.staged.append((1, None, item))
             return
 
         current_tick = getattr(self.receiver, 'tick_counter', 0)
+        sender.is_transmitting = True
 
         # 1. Calculate physical 3D distance
         dx = sender.x - self.receiver.x
@@ -71,27 +72,51 @@ class JacobiQueue(list):
         d_queue = int(queue_occupancy / 5)
 
         total_delay = d_dist + d_jitter + d_queue
-        delivery_tick = current_tick + total_delay
 
-        self.staged.append((delivery_tick, item))
+        # 5. CSMA/CA Carrier Sense & Backoff
+        csma_enabled = getattr(self.receiver, 'csma_enabled', True)
+        if csma_enabled:
+            # Sense the channel: check if any active neighbor of the sender is currently transmitting
+            channel_busy = any(n.is_transmitting for n in sender.neighbors if not n.prev_on_fire)
+            if channel_busy:
+                # Channel is busy! Back off by adding a random slot delay (2-5 ticks)
+                total_delay += random.randint(2, 5)
+
+        delivery_tick = current_tick + total_delay
+        self.staged.append((delivery_tick, sender.id, item))
 
     def extend(self, items):
         # Treat as standard staged appends with instant next-tick delivery
         current_tick = getattr(self.receiver, 'tick_counter', 0)
         for item in items:
-            self.staged.append((current_tick + 1, item))
+            self.staged.append((current_tick + 1, None, item))
 
     def swap_staged_to_active(self, current_tick: int):
         super().clear()
         
-        # Deliver expired packets whose delivery_tick has arrived
+        # 1. Group expired packets by their scheduled delivery_tick
+        expired_by_tick = {}
         undelivered = []
-        for delivery_tick, item in self.staged:
+        for delivery_tick, sender_id, item in self.staged:
             if delivery_tick <= current_tick:
-                super().append(item)
+                expired_by_tick.setdefault(delivery_tick, []).append((sender_id, item))
             else:
-                undelivered.append((delivery_tick, item))
+                undelivered.append((delivery_tick, sender_id, item))
         
+        # 2. Check for collisions at each tick
+        for tick_val, packets in expired_by_tick.items():
+            # If multiple packets from DIFFERENT senders arrive at the exact same tick, they collide!
+            unique_senders = set(sender_id for sender_id, _ in packets if sender_id is not None)
+            if len(unique_senders) > 1:
+                # Collision detected! Drop all packets at this tick
+                sender_names = ", ".join(unique_senders)
+                ColorLogger.warn(f"[COLLISION] Packets from ({sender_names}) collided at {self.receiver.id} at tick {tick_val}!")
+                continue
+            
+            # Non-colliding packets are delivered to the active queue
+            for _, item in packets:
+                super().append(item)
+                
         self.staged = undelivered
 
     def clear(self):
@@ -114,6 +139,8 @@ class Node:
         self.floor: int = 0
         self.delay_factor: float = 0.0
         self.jitter_ticks: int = 0
+        self.csma_enabled: bool = True
+        self.is_transmitting: bool = False
         
         # Jacobi frozen states
         self.prev_cost: float = self.cost
@@ -153,6 +180,7 @@ class Node:
     def pre_tick(self):
         """Lifecycle hook run before execution. Increments ticks and broadcasts keepalives."""
         self.tick_counter += 1
+        self.is_transmitting = False
         
         # Freeze cost state for Jacobi synchronous update
         self.prev_cost = self.cost

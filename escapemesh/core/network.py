@@ -202,13 +202,14 @@ def generate_positions(node_ids) -> Dict[str, Dict[str, Any]]:
 class MeshNetwork:
     """Manages collection of nodes and simulation execution."""
     
-    def __init__(self, packet_loss_rate: float = 0.0, max_distance: float = 300.0, fire_penalty: float = 0.4, delay_factor: float = 0.0, jitter_ticks: int = 0):
+    def __init__(self, packet_loss_rate: float = 0.0, max_distance: float = 300.0, fire_penalty: float = 0.4, delay_factor: float = 0.0, jitter_ticks: int = 0, csma_enabled: bool = True):
         self.nodes: Dict[str, Node] = {}
         self.packet_loss_rate = packet_loss_rate
         self.max_distance = max_distance
         self.fire_penalty = fire_penalty
         self.delay_factor = delay_factor
         self.jitter_ticks = jitter_ticks
+        self.csma_enabled = csma_enabled
  
     def load_from_topology(self, filepath: str, routing_mode: str = "gradient"):
         """Loads and parses JSON topology file instantiating the matching Node subclass."""
@@ -237,6 +238,7 @@ class MeshNetwork:
             node_instance.fire_penalty = self.fire_penalty
             node_instance.delay_factor = self.delay_factor
             node_instance.jitter_ticks = self.jitter_ticks
+            node_instance.csma_enabled = self.csma_enabled
             self.nodes[name] = node_instance
             
         # Generate coordinates and assign them to node instances
