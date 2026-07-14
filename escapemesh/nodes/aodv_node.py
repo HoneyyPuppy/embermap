@@ -5,8 +5,7 @@ class AODVNode(Node):
     """Node implementing Ad hoc On-Demand Distance Vector routing."""
     def __init__(self, node_id: str, is_exit: bool = False):
         super().__init__(node_id, is_exit)
-        self.aodv_routing_table: Dict[str, Tuple[float, int, Optional[str], bool]] = {}
-        self.incoming_aodv_packets: List[Dict] = []
+        self.aodv_routing_table: Dict[str, Tuple[float, int, str, bool]] = {}
         self.seen_rreqs: Set[Tuple[str, int]] = set()
         self.aodv_rreq_id = 0
         self.rreq_cooldown = 0

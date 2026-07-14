@@ -3,6 +3,26 @@ from escapemesh.utils.logger import ColorLogger
 
 INF = 999
 
+class JacobiQueue(list):
+    """List subclass that stages appends during a tick and releases them at the beginning of the next tick."""
+    def __init__(self):
+        super().__init__()
+        self.staged = []
+
+    def append(self, item):
+        self.staged.append(item)
+
+    def extend(self, items):
+        self.staged.extend(items)
+
+    def swap_staged_to_active(self):
+        super().clear()
+        super().extend(self.staged)
+        self.staged.clear()
+
+    def clear(self):
+        super().clear()
+
 class Node:
     """Base IoT node class with built-in Heartbeat keepalive simulation."""
     def __init__(self, node_id: str, is_exit: bool = False):
@@ -12,6 +32,17 @@ class Node:
         self.points_to: Optional['Node'] = None
         self.neighbors: List['Node'] = []
         self.on_fire = False
+        
+        # Jacobi frozen states
+        self.prev_cost: float = self.cost
+        self.prev_points_to: Optional['Node'] = self.points_to
+        self.prev_on_fire: bool = self.on_fire
+        
+        # Staged packet queues for synchronous update
+        self.incoming_lsas = JacobiQueue()
+        self.incoming_dsdv_updates = JacobiQueue()
+        self.incoming_aodv_packets = JacobiQueue()
+        self.incoming_dios = JacobiQueue()
         
         # Heartbeat tracking state
         self.tick_counter = 0
@@ -40,6 +71,18 @@ class Node:
     def pre_tick(self):
         """Lifecycle hook run before execution. Increments ticks and broadcasts keepalives."""
         self.tick_counter += 1
+        
+        # Freeze cost state for Jacobi synchronous update
+        self.prev_cost = self.cost
+        self.prev_points_to = self.points_to
+        self.prev_on_fire = self.on_fire
+        
+        # Release staged packets for Jacobi synchronous message passing
+        self.incoming_lsas.swap_staged_to_active()
+        self.incoming_dsdv_updates.swap_staged_to_active()
+        self.incoming_aodv_packets.swap_staged_to_active()
+        self.incoming_dios.swap_staged_to_active()
+        
         # Broadcast keepalive ping to neighbors every 3 ticks
         if not self.on_fire:
             for n in self.neighbors:

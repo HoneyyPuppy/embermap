@@ -6,7 +6,6 @@ class DSDVNode(Node):
     def __init__(self, node_id: str, is_exit: bool = False):
         super().__init__(node_id, is_exit)
         self.routing_table: Dict[str, Tuple[float, int, Optional[str]]] = {}
-        self.incoming_dsdv_updates: List[Tuple[str, Dict[str, Tuple[float, int]]]] = []
         self.sequence_num = 0
         self.dsdv_tick_count = 0
         self.last_active_neighbors: List[str] = []
