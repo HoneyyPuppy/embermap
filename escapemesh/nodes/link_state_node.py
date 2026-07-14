@@ -6,10 +6,9 @@ class LinkStateNode(Node):
     """Node implementing Link-State routing with LSA flooding and Dijkstra."""
     def __init__(self, node_id: str, is_exit: bool = False):
         super().__init__(node_id, is_exit)
-        self.lsdb: Dict[str, List[str]] = {}
+        self.lsdb: Dict[str, Tuple[int, List[str]]] = {}
         self.lsa_seqs: Dict[str, int] = {}
         self.sequence_num = 0
-        self.incoming_lsas: List[Tuple[str, int, List[str]]] = []
         self.last_active_neighbors: List[str] = []
 
     def on_fire_action(self):
