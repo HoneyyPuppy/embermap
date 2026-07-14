@@ -8,7 +8,10 @@ class GradientNode(Node):
             
         best_cost = float(INF)
         best_neighbor = None
+        active_ids = set(self.get_active_neighbors())
         for n in self.neighbors:
+            if n.id not in active_ids:
+                continue
             if n.prev_cost < best_cost:
                 best_cost = n.prev_cost
                 best_neighbor = n
