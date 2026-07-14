@@ -37,9 +37,10 @@ export async function runConvergence() {
   const maxTicks = parseInt(document.getElementById('per-max-ticks').value);
   const delayFactor = parseFloat(document.getElementById('per-delay-factor').value);
   const jitterTicks = parseInt(document.getElementById('per-jitter-ticks').value);
+  const csmaEnabled = document.getElementById('per-csma-enabled').checked;
 
   try {
-    const data = await runSimulation(protocol, lossRate, maxDistance, firePenalty, maxTicks, delayFactor, jitterTicks);
+    const data = await runSimulation(protocol, lossRate, maxDistance, firePenalty, maxTicks, delayFactor, jitterTicks, csmaEnabled);
     await playTimeline(data.timeline, 'Converging');
 
     state.converged = true;
