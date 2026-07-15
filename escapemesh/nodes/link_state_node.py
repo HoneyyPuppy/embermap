@@ -23,7 +23,7 @@ class LinkStateNode(Node):
         
         lsa = (self.id, self.sequence_num, active)
         for n in self.neighbors:
-            n.incoming_lsas.append(lsa)
+            n.incoming_lsas.append_from(self, lsa)
 
     def process_lsas(self) -> bool:
         changed = False
@@ -40,7 +40,7 @@ class LinkStateNode(Node):
 
         for lsa in queue_to_flood:
             for n in self.neighbors:
-                n.incoming_lsas.append(lsa)
+                n.incoming_lsas.append_from(self, lsa)
         return changed
 
     def tick(self) -> bool:

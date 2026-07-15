@@ -28,7 +28,7 @@ class RPLNode(Node):
         """Broadcasts a DODAG Information Object (DIO) to neighbors."""
         for n in self.neighbors:
             if not n.on_fire:
-                n.incoming_dios.append((self.id, self.rank))
+                n.incoming_dios.append_from(self, (self.id, self.rank))
 
     def tick(self) -> bool:
         if self.on_fire:

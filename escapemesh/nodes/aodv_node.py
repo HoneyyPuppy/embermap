@@ -32,7 +32,7 @@ class AODVNode(Node):
         self.seen_rreqs.add((self.id, self.aodv_rreq_id))
         for n in self.neighbors:
             if not n.on_fire:
-                n.incoming_aodv_packets.append(rreq.copy())
+                n.incoming_aodv_packets.append_from(self, rreq.copy())
 
     def broadcast_aodv_rerr(self, broken_dest: str):
         rerr = {
@@ -43,7 +43,7 @@ class AODVNode(Node):
         }
         for n in self.neighbors:
             if not n.on_fire:
-                n.incoming_aodv_packets.append(rerr.copy())
+                n.incoming_aodv_packets.append_from(self, rerr.copy())
 
     def tick(self) -> bool:
         if self.on_fire:
@@ -109,14 +109,14 @@ class AODVNode(Node):
                     }
                     for n in self.neighbors:
                         if n.id == sender:
-                            n.incoming_aodv_packets.append(rrep.copy())
+                            n.incoming_aodv_packets.append_from(self, rrep.copy())
                             break
                 else:
                     pkt["hop_count"] += 1.0
                     pkt["sender"] = self.id
                     for n in self.neighbors:
                         if n.id != sender and not n.on_fire:
-                            n.incoming_aodv_packets.append(pkt.copy())
+                            n.incoming_aodv_packets.append_from(self, pkt.copy())
 
             elif pkt_type == "RREP":
                 dest = pkt["dest"]
@@ -139,7 +139,7 @@ class AODVNode(Node):
                         pkt["sender"] = self.id
                         for n in self.neighbors:
                             if n.id == next_hop_to_origin:
-                                n.incoming_aodv_packets.append(pkt.copy())
+                                n.incoming_aodv_packets.append_from(self, pkt.copy())
                                 break
 
             elif pkt_type == "RERR":
@@ -153,7 +153,7 @@ class AODVNode(Node):
                     pkt["sender"] = self.id
                     for n in self.neighbors:
                         if n.id != sender and not n.on_fire:
-                            n.incoming_aodv_packets.append(pkt.copy())
+                            n.incoming_aodv_packets.append_from(self, pkt.copy())
 
         if state_updated or link_broken:
             best_cost = float(INF)
