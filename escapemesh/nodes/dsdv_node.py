@@ -21,7 +21,7 @@ class DSDVNode(Node):
     def broadcast_dsdv_update(self):
         update_packet = {dest: (m, s) for dest, (m, s, _) in self.routing_table.items()}
         for n in self.neighbors:
-            n.incoming_dsdv_updates.append((self.id, update_packet))
+            n.incoming_dsdv_updates.append_from(self, (self.id, update_packet))
 
     def tick(self) -> bool:
         if self.on_fire:
