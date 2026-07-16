@@ -1,10 +1,12 @@
+# FILE: escapemesh/core/network.py
 import json
-from typing import Dict, Any
-from escapemesh.core.base_node import Node
+from typing import Dict, Any, List
+
+from escapemesh.core.base_node import JacobiQueue, Node
+from escapemesh.nodes.aodv_node import AODVNode
+from escapemesh.nodes.dsdv_node import DSDVNode
 from escapemesh.nodes.gradient_node import GradientNode
 from escapemesh.nodes.link_state_node import LinkStateNode
-from escapemesh.nodes.dsdv_node import DSDVNode
-from escapemesh.nodes.aodv_node import AODVNode
 from escapemesh.nodes.potential_field_node import PotentialFieldNode
 from escapemesh.nodes.rpl_node import RPLNode
 
@@ -212,9 +214,8 @@ class MeshNetwork:
         self.csma_enabled = csma_enabled
  
     def load_from_topology(self, filepath: str, routing_mode: str = "gradient"):
-        """Loads and parses JSON topology file instantiating the matching Node subclass."""
         self.nodes.clear()
-        with open(filepath, 'r') as f:
+        with open(filepath, 'r', encoding="utf-8") as f:
             data = json.load(f)
             
         # Select packet loss rate from JSON file if present, otherwise use instance default
@@ -227,13 +228,12 @@ class MeshNetwork:
             "dsdv": DSDVNode,
             "aodv": AODVNode,
             "potential_field": PotentialFieldNode,
-            "rpl": RPLNode
+            "rpl": RPLNode,
         }
         node_class = node_classes.get(routing_mode, GradientNode)
-            
+
         for name, props in data.get("nodes", {}).items():
-            node_instance = node_class(name, props.get("is_exit", False))
-            node_instance.packet_loss_rate = self.packet_loss_rate
+            node_instance = node_class(name, props.get("is_exit", False), packet_loss_rate=self.packet_loss_rate)
             node_instance.max_distance = self.max_distance
             node_instance.fire_penalty = self.fire_penalty
             node_instance.delay_factor = self.delay_factor
@@ -260,41 +260,54 @@ class MeshNetwork:
                 self.nodes[n1].add_neighbor(self.nodes[n2])
                 self.nodes[n2].add_neighbor(self.nodes[n1])
 
+    def set_node_online(self, node_id: str, online: bool):
+        if node_id not in self.nodes:
+            raise KeyError(f"Unknown node: {node_id}")
+        self.nodes[node_id].set_online(online)
+
+    def set_link_state(self, node_a: str, node_b: str, enabled: bool):
+        """Enable/disable a bidirectional physical link without deleting topology."""
+        if node_a not in self.nodes or node_b not in self.nodes:
+            raise KeyError(f"Unknown link endpoint: {node_a}, {node_b}")
+        if self.nodes[node_b] not in self.nodes[node_a].neighbors:
+            raise ValueError(f"Nodes {node_a} and {node_b} are not neighbors")
+
+        self.nodes[node_a].set_link_enabled(node_b, enabled)
+        self.nodes[node_b].set_link_enabled(node_a, enabled)
+
     def tick(self) -> bool:
-        """
-        Executes a single synchronous tick across all nodes.
-        Returns True if routing states changed OR if packets are still in flight.
-        """
+        """Execute one synchronous tick across all operational nodes."""
         changed = False
-        # Run keepalives and ticks sequentially
+
         for node in list(self.nodes.values()):
             node.pre_tick()
-            
+
         for node in list(self.nodes.values()):
-            if node.tick():
+            if node.is_operational and node.tick():
                 changed = True
-                
-        # Check if there are pending messages to process in the next tick (including staged packets)
-        packets_in_flight = any(
-            len(getattr(node, 'incoming_lsas', [])) > 0 or 
-            len(getattr(getattr(node, 'incoming_lsas', None), 'staged', [])) > 0 or
-            len(getattr(node, 'incoming_dsdv_updates', [])) > 0 or
-            len(getattr(getattr(node, 'incoming_dsdv_updates', None), 'staged', [])) > 0 or
-            len(getattr(node, 'incoming_aodv_packets', [])) > 0 or
-            len(getattr(getattr(node, 'incoming_aodv_packets', None), 'staged', [])) > 0 or
-            len(getattr(node, 'incoming_dios', [])) > 0 or
-            len(getattr(getattr(node, 'incoming_dios', None), 'staged', [])) > 0
-            for node in self.nodes.values()
+        queues = (
+            "incoming_lsas",
+            "incoming_dsdv_updates",
+            "incoming_aodv_packets",
+            "incoming_dios",
         )
-        
-        # Keep ticking if any AODV node is actively searching for a route (i.e. has no active route to EXIT)
+        packets_in_flight = any(
+            isinstance(getattr(node, queue_name, None), JacobiQueue)
+            and getattr(node, queue_name).has_pending()
+            for node in self.nodes.values()
+            for queue_name in queues
+        )
+
         searching_route = any(
-            isinstance(node, AODVNode) and not node.is_exit and 
-            not any(
-                active for dest, (_, _, _, active) in node.aodv_routing_table.items()
+            isinstance(node, AODVNode)
+            and node.is_operational
+            and not node.is_exit
+            and not any(
+                active
+                for dest, (_, _, _, active) in node.aodv_routing_table.items()
                 if "EXIT" in dest or dest.startswith("EX")
             )
             for node in self.nodes.values()
         )
-        
+
         return changed or packets_in_flight or searching_route

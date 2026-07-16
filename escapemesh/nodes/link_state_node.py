@@ -1,29 +1,43 @@
+# FILE: escapemesh/nodes/link_state_node.py
 import heapq
-from typing import List, Tuple, Dict, Set, Optional
-from escapemesh.core.base_node import Node, INF
+from typing import Dict, List, Optional, Set, Tuple
+
+from escapemesh.core.base_node import INF, Node
+
 
 class LinkStateNode(Node):
-    """Node implementing Link-State routing with LSA flooding and Dijkstra."""
+    """Link-State routing with damped adjacency changes and LSA flooding."""
+
     def __init__(self, node_id: str, is_exit: bool = False):
         super().__init__(node_id, is_exit)
-        self.lsdb: Dict[str, Tuple[int, List[str]]] = {}
+        self.lsdb: Dict[str, List[str]] = {}
         self.lsa_seqs: Dict[str, int] = {}
         self.sequence_num = 0
         self.last_active_neighbors: List[str] = []
 
     def on_fire_action(self):
-        self.broadcast_lsa()
+        self.broadcast_lsa(force=True)
 
-    def broadcast_lsa(self):
+    def broadcast_lsa(self, force: bool = False):
         self.sequence_num += 1
-        active = self.get_active_neighbors()
+        active = self.get_active_neighbors() if self.is_operational else []
         self.last_active_neighbors = active
         self.lsdb[self.id] = active
         self.lsa_seqs[self.id] = self.sequence_num
-        
+
         lsa = (self.id, self.sequence_num, active)
-        for n in self.neighbors:
-            n.incoming_lsas.append_from(self, lsa)
+        if force:
+            targets = [
+                neighbor
+                for neighbor in self.neighbors
+                if neighbor.is_operational
+                and neighbor.id not in self._disabled_links
+                and self.id not in neighbor._disabled_links
+            ]
+        else:
+            targets = list(self.iter_transmittable_neighbors())
+        for neighbor in targets:
+            neighbor.incoming_lsas.append_from(self, lsa)
 
     def process_lsas(self) -> bool:
         changed = False
@@ -31,20 +45,20 @@ class LinkStateNode(Node):
         current_lsas = self.incoming_lsas[:]
         self.incoming_lsas.clear()
 
-        for origin, seq, neighbors in current_lsas:
-            if seq > self.lsa_seqs.get(origin, -1):
-                self.lsa_seqs[origin] = seq
+        for origin, sequence, neighbors in current_lsas:
+            if sequence > self.lsa_seqs.get(origin, -1):
+                self.lsa_seqs[origin] = sequence
                 self.lsdb[origin] = neighbors
                 changed = True
-                queue_to_flood.append((origin, seq, neighbors))
+                queue_to_flood.append((origin, sequence, neighbors))
 
         for lsa in queue_to_flood:
-            for n in self.neighbors:
-                n.incoming_lsas.append_from(self, lsa)
+            for neighbor in self.iter_transmittable_neighbors():
+                neighbor.incoming_lsas.append_from(self, lsa)
         return changed
 
     def tick(self) -> bool:
-        if self.on_fire:
+        if not self.is_operational:
             return False
 
         active_now = self.get_active_neighbors()
@@ -52,39 +66,46 @@ class LinkStateNode(Node):
             self.broadcast_lsa()
 
         lsdb_changed = self.process_lsas()
-
         if self.id not in self.lsdb:
             self.broadcast_lsa()
             lsdb_changed = True
 
-        if lsdb_changed and not self.on_fire:
-            exits = [node_id for node_id in self.lsdb.keys() if "EXIT" in node_id or node_id.startswith("EX")]
+        if lsdb_changed:
+            exits = [
+                node_id
+                for node_id in self.lsdb
+                if "EXIT" in node_id or node_id.startswith("EX")
+            ]
             cost, next_hop_id = self.run_dijkstra(exits)
-            
-            best_neighbor = None
-            if next_hop_id:
-                for n in self.neighbors:
-                    if n.id == next_hop_id:
-                        best_neighbor = n
-                        break
+            best_neighbor = next(
+                (
+                    neighbor
+                    for neighbor in self.neighbors
+                    if neighbor.id == next_hop_id
+                ),
+                None,
+            )
             return self._update_routing_state(cost, best_neighbor)
         return False
 
     def run_dijkstra(self, exits: List[str]) -> Tuple[float, Optional[str]]:
         if self.id in exits:
             return 0.0, None
-            
+
         queue = [(0.0, self.id, None)]
         visited: Set[str] = set()
         while queue:
-            cost, u, first_hop = heapq.heappop(queue)
-            if u in visited:
+            cost, node_id, first_hop = heapq.heappop(queue)
+            if node_id in visited:
                 continue
-            visited.add(u)
-            if u in exits:
+            visited.add(node_id)
+            if node_id in exits:
                 return cost, first_hop
-            for v in self.lsdb.get(u, []):
-                if v not in visited:
-                    next_first_hop = v if u == self.id else first_hop
-                    heapq.heappush(queue, (cost + 1.0, v, next_first_hop))
+            for neighbor_id in self.lsdb.get(node_id, []):
+                if neighbor_id not in visited:
+                    next_first_hop = neighbor_id if node_id == self.id else first_hop
+                    heapq.heappush(
+                        queue,
+                        (cost + 1.0, neighbor_id, next_first_hop),
+                    )
         return float(INF), None
