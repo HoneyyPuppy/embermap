@@ -42,12 +42,27 @@ export function showTooltip(e, nodeId) {
   const threshold = s.smoke_threshold != null ? Math.round(s.smoke_threshold) : Math.round(props.smoke_threshold || 400);
   const txCount = s.tx_msg_count != null ? s.tx_msg_count : 0;
 
+  // Calculate distance to selected node if there is one selected
+  let distanceHtml = '';
+  if (state.selectedNodeId && state.selectedNodeId !== nodeId && state.topology && state.topology.node_positions) {
+    const pos1 = state.topology.node_positions[state.selectedNodeId];
+    const pos2 = state.topology.node_positions[nodeId];
+    if (pos1 && pos2) {
+      const dx = pos1.x - pos2.x;
+      const dy = pos1.y - pos2.y;
+      const dz = (pos1.floor - pos2.floor) * 100;
+      const dist = Math.round(Math.sqrt(dx*dx + dy*dy + dz*dz));
+      distanceHtml = `<div class="tt-row" style="color:var(--primary); font-weight:700;">Distance to ${state.selectedNodeId}: ${dist} px</div>`;
+    }
+  }
+
   tt.innerHTML = `
     <div class="tt-id">${nodeId}</div>
     <div class="tt-row">Cost/Rank: <strong>${cost}</strong></div>
     <div class="tt-row">Next Hop: <strong>${s.next_hop || 'None'}</strong></div>
     <div class="tt-row">MQ2 Smoke: <strong>${smoke}/${threshold} PPM</strong></div>
     <div class="tt-row">TX Messages: <strong>${txCount}</strong></div>
+    ${distanceHtml}
     ${s.on_fire ? '<div class="tt-row" style="color:#ef4444">🔥 ALARM (FIRE)</div>' : ''}
   `;
   tt.classList.remove('hidden');

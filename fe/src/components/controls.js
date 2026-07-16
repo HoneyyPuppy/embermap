@@ -142,17 +142,7 @@ export async function doReset() {
 }
 
 export function handleNodeClick(nodeId) {
-  if (state.editMode) {
-    selectNode(nodeId);
-    return;
-  }
   selectNode(nodeId);
-  if (state.converged && !state.simulating) {
-    const pos = state.topology.node_positions[nodeId];
-    if (pos && pos.type !== 'exit') {
-      triggerFire(nodeId);
-    }
-  }
 }
 
 export function selectNode(nodeId) {
@@ -178,12 +168,31 @@ export function selectNode(nodeId) {
 
   const infoDiv = document.getElementById('node-info');
   if (infoDiv) {
+    // Calculate distance to all physical neighbors of this node
+    const nodeLinks = state.topology.links.filter(([n1, n2]) => n1 === nodeId || n2 === nodeId);
+    const neighbors = nodeLinks.map(([n1, n2]) => n1 === nodeId ? n2 : n1);
+    const neighborsHtml = neighbors.map(nbId => {
+      const pos2 = state.topology.node_positions[nbId];
+      if (!pos2) return '';
+      const dx = pos.x - pos2.x;
+      const dy = pos.y - pos2.y;
+      const dz = (pos.floor - pos2.floor) * 100;
+      const dist = Math.round(Math.sqrt(dx*dx + dy*dy + dz*dz));
+      return `<div style="display:flex; justify-content:space-between; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.03);"><span>• ${nbId}</span><strong style="color:var(--primary)">${dist} px</strong></div>`;
+    }).join('');
+
     infoDiv.innerHTML = `
       <div style="font-size: 13px; font-weight: 600; color: #10b981;">${nodeId}</div>
       <div style="font-size: 11px; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
         <div>Floor: <strong>${pos.floor}</strong></div>
         <div>Type: <strong>${pos.type.toUpperCase()}</strong></div>
         <div>Status: <strong style="color: ${nodeState.on_fire ? '#ef4444' : '#10b981'};">${nodeState.on_fire ? '🔥 ALARM (FIRE)' : '✓ Normal'}</strong></div>
+      </div>
+      <div style="margin-top: 10px; border-top: 1px dashed rgba(16,185,129,0.15); padding-top: 6px;">
+        <span style="font-size: 10px; font-weight: 700; color: var(--text-dim); display: block; margin-bottom: 4px; text-transform: uppercase;">Neighbor Distances:</span>
+        <div style="max-height: 80px; overflow-y: auto; font-size: 11px;">
+          ${neighborsHtml || '<div style="color:var(--text-dim)">No connections</div>'}
+        </div>
       </div>
     `;
   }
@@ -369,11 +378,20 @@ export function bindControls() {
     });
   }
 
-  const sliderDist = document.getElementById('per-max-dist');
-  const spanDist = document.getElementById('val-max-dist');
-  if (sliderDist && spanDist) {
-    sliderDist.addEventListener('input', () => {
-      spanDist.textContent = sliderDist.value;
+  // Bind PER Settings Max Range Infinity Checkbox
+  const checkboxDistInf = document.getElementById('per-max-dist-inf');
+  const inputDist = document.getElementById('per-max-dist');
+  if (checkboxDistInf && inputDist) {
+    let lastDistValue = inputDist.value;
+    checkboxDistInf.addEventListener('change', () => {
+      if (checkboxDistInf.checked) {
+        lastDistValue = inputDist.value;
+        inputDist.value = 99999;
+        inputDist.disabled = true;
+      } else {
+        inputDist.value = lastDistValue;
+        inputDist.disabled = false;
+      }
     });
   }
 

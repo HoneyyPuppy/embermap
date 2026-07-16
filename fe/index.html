@@ -80,9 +80,14 @@
             <label for="per-loss-rate">Baseline Loss: <span id="val-loss-rate">0%</span></label>
             <input type="range" id="per-loss-rate" min="0" max="100" value="0" step="5" />
           </div>
-          <div class="setting-row">
-            <label for="per-max-dist">Max Range (px): <span id="val-max-dist">300</span></label>
-            <input type="range" id="per-max-dist" min="100" max="1000" value="300" step="25" />
+          <div class="setting-row" style="flex-direction: row; align-items: center; justify-content: space-between;">
+            <label for="per-max-dist" style="margin-bottom: 0;">Max Range (px):</label>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="number" id="per-max-dist" min="1" max="99999" value="300" style="width: 70px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--accent); background: rgba(15,23,42,0.6); color: #fff; font-size: 11px; font-family: inherit;" />
+              <label style="margin-bottom:0; font-size:10px; display:flex; align-items:center; gap:2px; cursor:pointer;">
+                <input type="checkbox" id="per-max-dist-inf" style="width:auto; margin:0; cursor:pointer;" /> ∞
+              </label>
+            </div>
           </div>
           <div class="setting-row">
             <label for="per-fire-penalty">Fire Penalty: <span id="val-fire-penalty">40%</span></label>

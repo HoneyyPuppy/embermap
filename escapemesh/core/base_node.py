@@ -128,11 +128,12 @@ class JacobiQueue(list):
             else:
                 undelivered.append((delivery_tick, sender_id, item))
         
-        # 2. Check for collisions at each tick
+        # 2. Check for collisions at each tick (only if CSMA/CA is enabled)
+        csma_enabled = getattr(self.receiver, 'csma_enabled', True) if self.receiver else True
         for tick_val, packets in expired_by_tick.items():
             # If multiple packets from DIFFERENT senders arrive at the exact same tick, they collide!
             unique_senders = set(sender_id for sender_id, _ in packets if sender_id is not None)
-            if len(unique_senders) > 1:
+            if csma_enabled and len(unique_senders) > 1:
                 # Collision detected! Drop all packets at this tick
                 sender_names = ", ".join(unique_senders)
                 ColorLogger.warn(f"[COLLISION] Packets from ({sender_names}) collided at {self.receiver.id} at tick {tick_val}!")
