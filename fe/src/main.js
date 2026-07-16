@@ -1,14 +1,15 @@
 import './style.css';
 import { state } from './state.js';
-import { fetchTopology } from './api.js';
+import { fetchTopology, fetchBuildingLayout } from './api.js';
 import { buildFloorSVGs } from './components/floorSvg.js';
 import { bindControls, goToFloor } from './components/controls.js';
 
 async function init() {
   try {
     state.topology = await fetchTopology();
+    state.buildingLayout = await fetchBuildingLayout();
   } catch (e) {
-    console.warn('Failed to fetch topology — is the API running?', e);
+    console.warn('Failed to fetch initial data — is the API running?', e);
     const viewport = document.querySelector('#floor-viewport');
     if (viewport) {
       viewport.innerHTML =

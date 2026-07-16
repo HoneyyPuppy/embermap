@@ -142,6 +142,10 @@ class Node:
         self.csma_enabled: bool = True
         self.is_transmitting: bool = False
         
+        # MQ2 Sensor settings
+        self.smoke_level: float = 100.0
+        self.smoke_threshold: float = 400.0
+        
         # Jacobi frozen states
         self.prev_cost: float = self.cost
         self.prev_points_to: Optional['Node'] = self.points_to
@@ -164,6 +168,7 @@ class Node:
     def trigger_fire(self):
         """Simulate local fire detection. Stops sending heartbeats."""
         self.on_fire = True
+        self.smoke_level = max(self.smoke_level, 1000.0) # Ensure full smoke at fire site
         self.cost = float(INF)
         self.points_to = None
         ColorLogger.error(f"Node {self.id} detected FIRE!")
@@ -186,6 +191,21 @@ class Node:
         self.prev_cost = self.cost
         self.prev_points_to = self.points_to
         self.prev_on_fire = self.on_fire
+
+        # Smoke diffusion logic
+        if not self.on_fire and not self.is_exit:
+            smoke_increase = 0.0
+            for n in self.neighbors:
+                if n.prev_on_fire:
+                    smoke_increase += 40.0 # +40 PPM per adjacent fire source per tick
+            if smoke_increase > 0:
+                self.smoke_level = min(1000.0, self.smoke_level + smoke_increase)
+                if self.smoke_level >= self.smoke_threshold:
+                    self.trigger_fire()
+                    # Re-freeze since trigger_fire alters cost/state
+                    self.prev_cost = self.cost
+                    self.prev_points_to = self.points_to
+                    self.prev_on_fire = self.on_fire
         
         # Release staged packets for Jacobi synchronous message passing (based on delivery schedule)
         self.incoming_lsas.swap_staged_to_active(self.tick_counter)

@@ -239,12 +239,18 @@ class MeshNetwork:
             node_instance.delay_factor = self.delay_factor
             node_instance.jitter_ticks = self.jitter_ticks
             node_instance.csma_enabled = self.csma_enabled
+            node_instance.smoke_threshold = float(props.get("smoke_threshold", 400.0))
             self.nodes[name] = node_instance
             
-        # Generate coordinates and assign them to node instances
+        # Generate coordinates if missing, otherwise load from props
         positions = generate_positions(self.nodes.keys())
         for name, node in self.nodes.items():
-            if name in positions:
+            props = data.get("nodes", {}).get(name, {})
+            if "x" in props and "y" in props:
+                node.x = float(props["x"])
+                node.y = float(props["y"])
+                node.floor = int(props.get("floor", 0))
+            elif name in positions:
                 node.x = float(positions[name]["x"])
                 node.y = float(positions[name]["y"])
                 node.floor = int(positions[name]["floor"])
