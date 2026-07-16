@@ -18,6 +18,18 @@
       <span class="subtitle">IoT Evacuation Simulator</span>
     </div>
     <div class="header-right">
+      <!-- Mode Selection -->
+      <div class="editor-modes">
+        <button id="btn-mode-inspect" class="btn btn-ghost active">🔍 Inspect</button>
+        <button id="btn-mode-edit" class="btn btn-ghost">🛠️ Edit Mode</button>
+      </div>
+      
+      <!-- Save/Revert Actions -->
+      <div id="editor-actions" style="display: none; gap: 6px;">
+        <button id="btn-topo-save" class="btn btn-primary" style="background: linear-gradient(135deg, #059669, #047857);">💾 Save</button>
+        <button id="btn-topo-revert" class="btn btn-ghost">↩ Revert</button>
+      </div>
+
       <select id="protocol-select">
         <option value="gradient">Gradient Field</option>
         <option value="link_state">Link-State</option>
@@ -95,7 +107,25 @@
         <div class="panel-section">
           <h3>Selected Node</h3>
           <div id="node-info">
-            <p class="hint">Hover over a node to inspect</p>
+            <p class="hint">Hover or click a node to select</p>
+          </div>
+          <!-- Dynamic MQ2 Sensor & Connector Controls (Hidden by default, shown when node selected) -->
+          <div id="node-config-panel" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(16,185,129,0.15); gap: 10px; flex-direction: column;">
+            <div class="setting-row">
+              <label for="node-smoke-level">MQ2 Gas PPM: <span id="val-node-smoke">100</span></label>
+              <input type="range" id="node-smoke-level" min="100" max="1000" value="100" step="50" />
+            </div>
+            <div class="setting-row">
+              <label for="node-smoke-threshold">MQ2 Threshold (PPM):</label>
+              <input type="number" id="node-smoke-threshold" min="200" max="800" value="400" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--accent); background: rgba(15,23,42,0.6); color: #fff; font-family: inherit; font-size: 11px;" />
+            </div>
+            <div id="stairs-connector-row" class="setting-row" style="display: none; flex-direction: column; gap: 4px;">
+              <label for="node-stairs-select">Stairs Connection (Cross-Floor):</label>
+              <div style="display: flex; gap: 4px;">
+                <select id="node-stairs-select" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid var(--accent); background: rgba(15,23,42,0.6); color: #fff; font-size: 11px;"></select>
+                <button id="btn-stairs-connect" class="btn btn-primary" style="padding: 4px 8px; font-size: 11px;">Link</button>
+              </div>
+            </div>
           </div>
         </div>
 
