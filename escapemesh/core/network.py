@@ -204,7 +204,7 @@ def generate_positions(node_ids) -> Dict[str, Dict[str, Any]]:
 class MeshNetwork:
     """Manages collection of nodes and simulation execution."""
     
-    def __init__(self, packet_loss_rate: float = 0.0, max_distance: float = 300.0, fire_penalty: float = 0.4, delay_factor: float = 0.0, jitter_ticks: int = 0, csma_enabled: bool = True):
+    def __init__(self, packet_loss_rate: float = 0.0, max_distance: float = 300.0, fire_penalty: float = 0.4, delay_factor: float = 0.0, jitter_ticks: int = 0, csma_enabled: bool = True, smoke_propagation_enabled: bool = True, smoke_increment: float = 40.0):
         self.nodes: Dict[str, Node] = {}
         self.packet_loss_rate = packet_loss_rate
         self.max_distance = max_distance
@@ -212,6 +212,8 @@ class MeshNetwork:
         self.delay_factor = delay_factor
         self.jitter_ticks = jitter_ticks
         self.csma_enabled = csma_enabled
+        self.smoke_propagation_enabled = smoke_propagation_enabled
+        self.smoke_increment = smoke_increment
  
     def load_from_topology(self, filepath: str, routing_mode: str = "gradient"):
         self.nodes.clear()
@@ -239,6 +241,8 @@ class MeshNetwork:
             node_instance.delay_factor = self.delay_factor
             node_instance.jitter_ticks = self.jitter_ticks
             node_instance.csma_enabled = self.csma_enabled
+            node_instance.smoke_propagation_enabled = self.smoke_propagation_enabled
+            node_instance.smoke_increment = self.smoke_increment
             node_instance.smoke_threshold = float(props.get("smoke_threshold", 400.0))
             self.nodes[name] = node_instance
             

@@ -38,9 +38,11 @@ export async function runConvergence() {
   const delayFactor = parseFloat(document.getElementById('per-delay-factor').value);
   const jitterTicks = parseInt(document.getElementById('per-jitter-ticks').value);
   const csmaEnabled = document.getElementById('per-csma-enabled').checked;
+  const smokePropagationEnabled = document.getElementById('per-smoke-propagation-enabled').checked;
+  const smokeIncrement = parseFloat(document.getElementById('per-smoke-increment').value);
 
   try {
-    const data = await runSimulation(protocol, lossRate, maxDistance, firePenalty, maxTicks, delayFactor, jitterTicks, csmaEnabled);
+    const data = await runSimulation(protocol, lossRate, maxDistance, firePenalty, maxTicks, delayFactor, jitterTicks, csmaEnabled, smokePropagationEnabled, smokeIncrement);
     await playTimeline(data.timeline, 'Converging');
 
     state.converged = true;
@@ -375,6 +377,14 @@ export function bindControls() {
   if (sliderJitter && spanJitter) {
     sliderJitter.addEventListener('input', () => {
       spanJitter.textContent = sliderJitter.value;
+    });
+  }
+
+  const sliderSmokeInc = document.getElementById('per-smoke-increment');
+  const spanSmokeInc = document.getElementById('val-smoke-increment');
+  if (sliderSmokeInc && spanSmokeInc) {
+    sliderSmokeInc.addEventListener('input', () => {
+      spanSmokeInc.textContent = `${sliderSmokeInc.value} PPM`;
     });
   }
 

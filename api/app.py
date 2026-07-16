@@ -57,6 +57,8 @@ class SimulateRequest(BaseModel):
     delay_factor: float = 0.0
     jitter_ticks: int = 0
     csma_enabled: bool = True
+    smoke_propagation_enabled: bool = True
+    smoke_increment: float = 40.0
 
 class FireRequest(BaseModel):
     node_id: str
@@ -221,7 +223,9 @@ def simulate(req: SimulateRequest):
         fire_penalty=req.fire_penalty,
         delay_factor=req.delay_factor,
         jitter_ticks=req.jitter_ticks,
-        csma_enabled=req.csma_enabled
+        csma_enabled=req.csma_enabled,
+        smoke_propagation_enabled=req.smoke_propagation_enabled,
+        smoke_increment=req.smoke_increment
     )
     network.load_from_topology(TOPOLOGY_PATH, routing_mode=req.protocol)
 

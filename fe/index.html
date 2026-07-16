@@ -98,6 +98,14 @@
             <label for="per-csma-enabled" style="margin-bottom: 0;">Enable CSMA/CA</label>
             <input type="checkbox" id="per-csma-enabled" checked style="width: auto; cursor: pointer; accent-color: var(--primary);" />
           </div>
+          <div class="setting-row" style="flex-direction: row; align-items: center; justify-content: space-between;">
+            <label for="per-smoke-propagation-enabled" style="margin-bottom: 0;">Enable Fire Propagation</label>
+            <input type="checkbox" id="per-smoke-propagation-enabled" checked style="width: auto; cursor: pointer; accent-color: var(--primary);" />
+          </div>
+          <div class="setting-row">
+            <label for="per-smoke-increment">Propagation Rate: <span id="val-smoke-increment">40 PPM</span></label>
+            <input type="range" id="per-smoke-increment" min="5" max="150" value="40" step="5" />
+          </div>
           <div class="setting-row">
             <label for="per-max-ticks">Max Ticks: <span id="val-max-ticks">80</span></label>
             <input type="range" id="per-max-ticks" min="20" max="300" value="80" step="10" />

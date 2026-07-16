@@ -12,7 +12,7 @@ export async function fetchBuildingLayout() {
   return await res.json();
 }
 
-export async function runSimulation(protocol, lossRate = 0.0, maxDistance = 300.0, firePenalty = 0.4, maxTicks = 80, delayFactor = 0.0, jitterTicks = 0, csmaEnabled = true) {
+export async function runSimulation(protocol, lossRate = 0.0, maxDistance = 300.0, firePenalty = 0.4, maxTicks = 80, delayFactor = 0.0, jitterTicks = 0, csmaEnabled = true, smokePropagationEnabled = true, smokeIncrement = 40.0) {
   const res = await fetch(`${API}/api/simulate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -24,7 +24,9 @@ export async function runSimulation(protocol, lossRate = 0.0, maxDistance = 300.
       max_ticks: maxTicks,
       delay_factor: delayFactor,
       jitter_ticks: jitterTicks,
-      csma_enabled: csmaEnabled
+      csma_enabled: csmaEnabled,
+      smoke_propagation_enabled: smokePropagationEnabled,
+      smoke_increment: smokeIncrement
     }),
   });
   if (!res.ok) throw new Error('Simulation API error');

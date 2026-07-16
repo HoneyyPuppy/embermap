@@ -184,6 +184,8 @@ class Node:
         # MQ2 Sensor settings
         self.smoke_level: float = 100.0
         self.smoke_threshold: float = 400.0
+        self.smoke_propagation_enabled: bool = True
+        self.smoke_increment: float = 40.0
         
         self.online = True
 
@@ -380,11 +382,11 @@ class Node:
         self.prev_route_path = self.route_path
 
         # Smoke diffusion logic
-        if not self.on_fire and not self.is_exit:
+        if getattr(self, 'smoke_propagation_enabled', True) and not self.on_fire and not self.is_exit:
             smoke_increase = 0.0
             for n in self.neighbors:
                 if n.prev_on_fire:
-                    smoke_increase += 40.0 # +40 PPM per adjacent fire source per tick
+                    smoke_increase += getattr(self, 'smoke_increment', 40.0) # PPM per adjacent fire source per tick
             if smoke_increase > 0:
                 self.smoke_level = min(1000.0, self.smoke_level + smoke_increase)
                 if self.smoke_level >= self.smoke_threshold:
