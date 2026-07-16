@@ -18,8 +18,8 @@ class RPLNode(Node):
     TRICKLE_REDUNDANCY = 3
     TRICKLE_RESET_COOLDOWN = 6
 
-    def __init__(self, node_id: str, is_exit: bool = False):
-        super().__init__(node_id, is_exit)
+    def __init__(self, node_id: str, is_exit: bool = False, packet_loss_rate: float = 0.0):
+        super().__init__(node_id, is_exit, packet_loss_rate)
         self.rank: float = 1.0 if is_exit else float(INF)
         self.cost = self.rank
         self.route_path = (self.id,) if is_exit else tuple()
@@ -278,7 +278,6 @@ class RPLNode(Node):
         self.broadcast_dio()
         self._reset_trickle()
         return changed or state_changed
->>>>>>> pr-5
 
     def tick(self) -> bool:
         if not self.is_operational:

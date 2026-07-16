@@ -27,6 +27,16 @@ class JacobiQueue(list):
         current_tick = getattr(self.receiver, 'tick_counter', 0)
         sender.is_transmitting = True
 
+        # If in logical mode (ideal simulation with 0 delay and 0 jitter)
+        delay_factor = getattr(self.receiver, 'delay_factor', 0.0)
+        jitter_ticks = getattr(self.receiver, 'jitter_ticks', 0)
+        if delay_factor == 0.0 and jitter_ticks == 0:
+            per = getattr(self.receiver, 'packet_loss_rate', 0.0)
+            if random.random() < per:
+                return  # Packet dropped!
+            self.staged.append((current_tick + 1, sender.id, item))
+            return
+
         # 1. Calculate physical 3D distance
         dx = sender.x - self.receiver.x
         dy = sender.y - self.receiver.y
@@ -97,6 +107,20 @@ class JacobiQueue(list):
     def swap_staged_to_active(self, current_tick: int):
         super().clear()
         
+        # If physical simulation parameters are 0, deliver directly without collision checks
+        delay_factor = getattr(self.receiver, 'delay_factor', 0.0) if self.receiver else 0.0
+        jitter_ticks = getattr(self.receiver, 'jitter_ticks', 0) if self.receiver else 0.0
+        
+        if delay_factor == 0.0 and jitter_ticks == 0:
+            undelivered = []
+            for delivery_tick, sender_id, item in self.staged:
+                if delivery_tick <= current_tick:
+                    super().append(item)
+                else:
+                    undelivered.append((delivery_tick, sender_id, item))
+            self.staged = undelivered
+            return
+
         # 1. Group expired packets by their scheduled delivery_tick
         expired_by_tick = {}
         undelivered = []
@@ -380,6 +404,9 @@ class Node:
         # Broadcast keepalive ping to transmittable neighbors with physical distance loss checks
         if self.is_operational:
             for n in self.iter_transmittable_neighbors():
+                if self.delay_factor == 0.0 and self.jitter_ticks == 0:
+                    n.record_heartbeat(self.id, self.tick_counter)
+                    continue
                 dx = self.x - n.x
                 dy = self.y - n.y
                 dz = (self.floor - n.floor) * 100

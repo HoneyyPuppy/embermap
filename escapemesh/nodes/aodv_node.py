@@ -9,8 +9,8 @@ from escapemesh.core.base_node import INF, Node
 class AODVNode(Node):
     """Ad hoc On-Demand Distance Vector routing with damped link failure input."""
 
-    def __init__(self, node_id: str, is_exit: bool = False):
-        super().__init__(node_id, is_exit)
+    def __init__(self, node_id: str, is_exit: bool = False, packet_loss_rate: float = 0.0):
+        super().__init__(node_id, is_exit, packet_loss_rate)
         self.aodv_routing_table: Dict[
             str, Tuple[float, int, Optional[str], bool]
         ] = {}
@@ -114,7 +114,6 @@ class AODVNode(Node):
             None,
         )
         return self._update_routing_state(best_cost, best_neighbor)
->>>>>>> pr-5
 
     def tick(self) -> bool:
         if not self.is_operational:

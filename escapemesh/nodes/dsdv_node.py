@@ -12,8 +12,8 @@ class DSDVNode(Node):
     ROUTE_HOLD_DOWN_TICKS = 8
     PERIODIC_UPDATE_TICKS = 5
 
-    def __init__(self, node_id: str, is_exit: bool = False):
-        super().__init__(node_id, is_exit)
+    def __init__(self, node_id: str, is_exit: bool = False, packet_loss_rate: float = 0.0):
+        super().__init__(node_id, is_exit, packet_loss_rate)
         self.routing_table: Dict[str, Tuple[float, int, Optional[str]]] = {}
         self.sequence_num = 0
         self.dsdv_tick_count = 0

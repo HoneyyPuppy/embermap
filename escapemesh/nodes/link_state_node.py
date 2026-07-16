@@ -8,8 +8,8 @@ from escapemesh.core.base_node import INF, Node
 class LinkStateNode(Node):
     """Link-State routing with damped adjacency changes and LSA flooding."""
 
-    def __init__(self, node_id: str, is_exit: bool = False):
-        super().__init__(node_id, is_exit)
+    def __init__(self, node_id: str, is_exit: bool = False, packet_loss_rate: float = 0.0):
+        super().__init__(node_id, is_exit, packet_loss_rate)
         self.lsdb: Dict[str, List[str]] = {}
         self.lsa_seqs: Dict[str, int] = {}
         self.sequence_num = 0
