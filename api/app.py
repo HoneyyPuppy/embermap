@@ -1,3 +1,4 @@
+# FILE: api/app.py
 """
 EscapeMesh Simulation API — FastAPI Backend
 Wraps the Python routing simulation into REST endpoints for the web visualization.
@@ -228,6 +229,15 @@ class SimulateRequest(BaseModel):
 class FireRequest(BaseModel):
     node_id: str
 
+class NodeStateRequest(BaseModel):
+    node_id: str
+    online: bool
+
+class LinkStateRequest(BaseModel):
+    node_a: str
+    node_b: str
+    enabled: bool
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -238,6 +248,7 @@ def _snapshot(network: MeshNetwork) -> Dict[str, Dict[str, Any]]:
             "cost": node.cost,
             "next_hop": node.points_to.id if node.points_to else None,
             "on_fire": node.on_fire,
+            "online": node.online,
         }
         for node_id, node in network.nodes.items()
     }
@@ -336,6 +347,58 @@ def fire(req: FireRequest):
 
     return {
         "fired_node": req.node_id,
+        "converged": converged,
+        "ticks_taken": ticks_taken,
+        "timeline": timeline,
+    }
+
+
+@app.post("/api/node-state")
+def set_node_state(req: NodeStateRequest):
+    """Temporarily power a node on/off and run stabilized recovery ticks."""
+    if state["network"] is None:
+        raise HTTPException(400, "No simulation running. Call /api/simulate first.")
+
+    network: MeshNetwork = state["network"]
+    if req.node_id not in network.nodes:
+        raise HTTPException(404, f"Node '{req.node_id}' not found in network.")
+    if network.nodes[req.node_id].on_fire:
+        raise HTTPException(400, "A node on fire cannot be powered back online.")
+
+    network.set_node_online(req.node_id, req.online)
+    timeline, converged, ticks_taken = _run_ticks(
+        network, max_ticks=80, stability_window=12
+    )
+    return {
+        "node_id": req.node_id,
+        "online": req.online,
+        "converged": converged,
+        "ticks_taken": ticks_taken,
+        "timeline": timeline,
+    }
+
+
+@app.post("/api/link-state")
+def set_link_state(req: LinkStateRequest):
+    """Enable/disable an existing physical link without deleting it."""
+    if state["network"] is None:
+        raise HTTPException(400, "No simulation running. Call /api/simulate first.")
+
+    network: MeshNetwork = state["network"]
+    try:
+        network.set_link_state(req.node_a, req.node_b, req.enabled)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    timeline, converged, ticks_taken = _run_ticks(
+        network, max_ticks=80, stability_window=12
+    )
+    return {
+        "node_a": req.node_a,
+        "node_b": req.node_b,
+        "enabled": req.enabled,
         "converged": converged,
         "ticks_taken": ticks_taken,
         "timeline": timeline,
