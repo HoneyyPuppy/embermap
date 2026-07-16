@@ -1,9 +1,16 @@
 export const state = {
   topology: null,   // { nodes, links, node_positions }
+  buildingLayout: null, // { corridors }
   currentFloor: 0,
   converged: false,
   simulating: false,
   currentNodeStates: {}, // node_id -> { cost, next_hop, on_fire }
+
+  // Editor states
+  editMode: false,
+  selectedNodeId: null,
+  linkingStartNode: null,
+  draggingNodeId: null,
   
   // Pan and zoom states for each floor
   panZoomStates: Array.from({ length: 6 }, () => ({

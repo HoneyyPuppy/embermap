@@ -6,6 +6,12 @@ export async function fetchTopology() {
   return await res.json();
 }
 
+export async function fetchBuildingLayout() {
+  const res = await fetch(`${API}/api/building-layout`);
+  if (!res.ok) throw new Error('Failed to fetch building layout');
+  return await res.json();
+}
+
 export async function runSimulation(protocol, lossRate = 0.0, maxDistance = 300.0, firePenalty = 0.4, maxTicks = 80, delayFactor = 0.0, jitterTicks = 0, csmaEnabled = true) {
   const res = await fetch(`${API}/api/simulate`, {
     method: 'POST',
@@ -25,11 +31,11 @@ export async function runSimulation(protocol, lossRate = 0.0, maxDistance = 300.
   return await res.json();
 }
 
-export async function triggerFireIncident(nodeId) {
+export async function triggerFireIncident(nodeId, smokeLevel = null) {
   const res = await fetch(`${API}/api/fire`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ node_id: nodeId }),
+    body: JSON.stringify({ node_id: nodeId, smoke_level: smokeLevel }),
   });
   if (!res.ok) throw new Error('Fire API error');
   return await res.json();
@@ -38,5 +44,21 @@ export async function triggerFireIncident(nodeId) {
 export async function resetSimulation() {
   const res = await fetch(`${API}/api/reset`, { method: 'POST' });
   if (!res.ok) throw new Error('Reset API error');
+  return await res.json();
+}
+
+export async function saveTopology(payload) {
+  const res = await fetch(`${API}/api/topology`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to save topology');
+  return await res.json();
+}
+
+export async function revertTopology() {
+  const res = await fetch(`${API}/api/topology/revert`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to revert topology');
   return await res.json();
 }

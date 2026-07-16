@@ -30,12 +30,16 @@ export function showTooltip(e, nodeId) {
   const tt = document.getElementById('tooltip');
   const s = state.currentNodeStates[nodeId] || {};
   const cost = s.cost != null ? (s.cost >= INF ? '∞' : s.cost.toFixed(1)) : '—';
+  const props = state.topology.nodes[nodeId] || {};
+  const smoke = s.smoke_level != null ? Math.round(s.smoke_level) : Math.round(props.smoke_level || 100);
+  const threshold = s.smoke_threshold != null ? Math.round(s.smoke_threshold) : Math.round(props.smoke_threshold || 400);
 
   tt.innerHTML = `
     <div class="tt-id">${nodeId}</div>
     <div class="tt-row">Cost/Rank: <strong>${cost}</strong></div>
     <div class="tt-row">Next Hop: <strong>${s.next_hop || 'None'}</strong></div>
-    ${s.on_fire ? '<div class="tt-row" style="color:#ef4444">🔥 FIRE DETECTED</div>' : ''}
+    <div class="tt-row">MQ2 Smoke: <strong>${smoke}/${threshold} PPM</strong></div>
+    ${s.on_fire ? '<div class="tt-row" style="color:#ef4444">🔥 ALARM (FIRE)</div>' : ''}
   `;
   tt.classList.remove('hidden');
   moveTooltip(e);
