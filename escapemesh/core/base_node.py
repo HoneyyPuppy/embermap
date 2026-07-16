@@ -27,10 +27,9 @@ class JacobiQueue(list):
         current_tick = getattr(self.receiver, 'tick_counter', 0)
         sender.is_transmitting = True
 
-        # If in logical mode (ideal simulation with 0 delay and 0 jitter)
-        delay_factor = getattr(self.receiver, 'delay_factor', 0.0)
-        jitter_ticks = getattr(self.receiver, 'jitter_ticks', 0)
-        if delay_factor == 0.0 and jitter_ticks == 0:
+        # If physical simulation is disabled (ideal simulation mode)
+        physical_enabled = getattr(self.receiver, 'physical_simulation_enabled', True) if self.receiver else True
+        if not physical_enabled:
             per = getattr(self.receiver, 'packet_loss_rate', 0.0)
             if random.random() < per:
                 return  # Packet dropped!
@@ -107,11 +106,9 @@ class JacobiQueue(list):
     def swap_staged_to_active(self, current_tick: int):
         super().clear()
         
-        # If physical simulation parameters are 0, deliver directly without collision checks
-        delay_factor = getattr(self.receiver, 'delay_factor', 0.0) if self.receiver else 0.0
-        jitter_ticks = getattr(self.receiver, 'jitter_ticks', 0) if self.receiver else 0.0
-        
-        if delay_factor == 0.0 and jitter_ticks == 0:
+        # If physical simulation is disabled, deliver directly without collision checks
+        physical_enabled = getattr(self.receiver, 'physical_simulation_enabled', True) if self.receiver else True
+        if not physical_enabled:
             undelivered = []
             for delivery_tick, sender_id, item in self.staged:
                 if delivery_tick <= current_tick:
@@ -186,6 +183,7 @@ class Node:
         self.smoke_threshold: float = 400.0
         self.smoke_propagation_enabled: bool = True
         self.smoke_increment: float = 40.0
+        self.physical_simulation_enabled: bool = True
         
         self.online = True
 
@@ -406,7 +404,8 @@ class Node:
         # Broadcast keepalive ping to transmittable neighbors with physical distance loss checks
         if self.is_operational:
             for n in self.iter_transmittable_neighbors():
-                if self.delay_factor == 0.0 and self.jitter_ticks == 0:
+                physical_enabled = getattr(self, 'physical_simulation_enabled', True)
+                if not physical_enabled:
                     n.record_heartbeat(self.id, self.tick_counter)
                     continue
                 dx = self.x - n.x

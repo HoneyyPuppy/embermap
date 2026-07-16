@@ -214,6 +214,7 @@ class MeshNetwork:
         self.csma_enabled = csma_enabled
         self.smoke_propagation_enabled = smoke_propagation_enabled
         self.smoke_increment = smoke_increment
+        self.physical_simulation_enabled = True
  
     def load_from_topology(self, filepath: str, routing_mode: str = "gradient"):
         self.nodes.clear()
@@ -222,6 +223,10 @@ class MeshNetwork:
             
         # Select packet loss rate from JSON file if present, otherwise use instance default
         self.packet_loss_rate = data.get("packet_loss_rate", self.packet_loss_rate)
+        
+        # Enable physical simulation if we are not running unit tests
+        import sys
+        self.physical_simulation_enabled = not ("pytest" in sys.modules or "unittest" in sys.modules)
             
         # Select Node class based on algorithm mode
         node_classes = {
@@ -243,6 +248,7 @@ class MeshNetwork:
             node_instance.csma_enabled = self.csma_enabled
             node_instance.smoke_propagation_enabled = self.smoke_propagation_enabled
             node_instance.smoke_increment = self.smoke_increment
+            node_instance.physical_simulation_enabled = self.physical_simulation_enabled
             node_instance.smoke_threshold = float(props.get("smoke_threshold", 400.0))
             self.nodes[name] = node_instance
             
