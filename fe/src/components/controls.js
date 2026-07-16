@@ -2,7 +2,7 @@ import { state } from '../state.js';
 import { runSimulation, triggerFireIncident, resetSimulation } from '../api.js';
 import { setStatus, sleep } from '../utils/helpers.js';
 import { updateNodeVisuals, updateRouteLines, buildFloorSVGs } from './floorSvg.js';
-import { updateRoutingTable } from './sidebar.js';
+import { updateRoutingTable, updateHardwareSuitability, updateFloorAnalysis } from './sidebar.js';
 
 export function goToFloor(f) {
   state.currentFloor = f;
@@ -14,6 +14,7 @@ export function goToFloor(f) {
   });
 
   updateRoutingTable();
+  updateFloorAnalysis();
 }
 
 export async function runConvergence() {
@@ -41,11 +42,14 @@ export async function runConvergence() {
   const smokePropagationEnabled = document.getElementById('per-smoke-propagation-enabled').checked;
   const smokeIncrement = parseFloat(document.getElementById('per-smoke-increment').value);
 
+  state.currentProtocol = protocol;
+
   try {
     const data = await runSimulation(protocol, lossRate, maxDistance, firePenalty, maxTicks, delayFactor, jitterTicks, csmaEnabled, smokePropagationEnabled, smokeIncrement);
     await playTimeline(data.timeline, 'Converging');
 
     state.converged = true;
+    state.ticksTaken = data.ticks_taken;
     setStatus('State', `Converged ✓`);
     setStatus('Tick', `${data.ticks_taken} ticks`);
   } catch (e) {
@@ -75,6 +79,7 @@ export async function triggerFire(nodeId) {
     const data = await triggerFireIncident(nodeId);
     await playTimeline(data.timeline, 'Healing');
 
+    state.ticksTaken = data.ticks_taken;
     setStatus('State', `Healed ✓`);
     setStatus('Tick', `${data.ticks_taken} ticks`);
   } catch (e) {
@@ -92,9 +97,19 @@ export async function playTimeline(timeline, phase) {
     state.currentNodeStates = frame.nodes;
     setStatus('Tick', `${phase} ${frame.tick}/${timeline.length}`);
 
+    // Dynamically calculate actual runtime message overhead and ticks
+    let totalMsgs = 0;
+    Object.keys(frame.nodes).forEach(id => {
+      totalMsgs += frame.nodes[id].tx_msg_count || 0;
+    });
+    state.totalMessages = totalMsgs;
+    state.ticksTaken = frame.tick;
+
     updateNodeVisuals();
     updateRouteLines();
     updateRoutingTable();
+    updateFloorAnalysis();
+    updateHardwareSuitability(state.currentProtocol || document.getElementById('protocol-select').value);
 
     const delay = timeline.length > 20 ? 80 : 180;
     await sleep(delay);
@@ -328,6 +343,20 @@ export function bindControls() {
           alert('This connection already exists!');
         }
       }
+    });
+  }
+
+  // Bind Protocol Select
+  const protocolSelect = document.getElementById('protocol-select');
+  if (protocolSelect) {
+    state.currentProtocol = protocolSelect.value;
+    // Initial display
+    updateHardwareSuitability(protocolSelect.value);
+    updateFloorAnalysis();
+    // On change display
+    protocolSelect.addEventListener('change', (e) => {
+      state.currentProtocol = e.target.value;
+      updateHardwareSuitability(e.target.value);
     });
   }
 

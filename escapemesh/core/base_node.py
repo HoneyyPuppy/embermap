@@ -26,6 +26,7 @@ class JacobiQueue(list):
 
         current_tick = getattr(self.receiver, 'tick_counter', 0)
         sender.is_transmitting = True
+        sender.routing_message_tx_count = getattr(sender, 'routing_message_tx_count', 0) + 1
 
         # If physical simulation is disabled (ideal simulation mode)
         physical_enabled = getattr(self.receiver, 'physical_simulation_enabled', True) if self.receiver else True
@@ -177,6 +178,7 @@ class Node:
         self.jitter_ticks: int = 0
         self.csma_enabled: bool = True
         self.is_transmitting: bool = False
+        self.routing_message_tx_count: int = 0
         
         # MQ2 Sensor settings
         self.smoke_level: float = 100.0

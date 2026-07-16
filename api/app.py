@@ -57,7 +57,7 @@ class SimulateRequest(BaseModel):
     delay_factor: float = 0.0
     jitter_ticks: int = 0
     csma_enabled: bool = True
-    smoke_propagation_enabled: bool = True
+    smoke_propagation_enabled: bool = False
     smoke_increment: float = 40.0
 
 class FireRequest(BaseModel):
@@ -86,6 +86,7 @@ def _snapshot(network: MeshNetwork) -> Dict[str, Dict[str, Any]]:
             "smoke_level": node.smoke_level,
             "smoke_threshold": node.smoke_threshold,
             "online": node.online,
+            "tx_msg_count": getattr(node, 'routing_message_tx_count', 0),
         }
         for node_id, node in network.nodes.items()
     }
