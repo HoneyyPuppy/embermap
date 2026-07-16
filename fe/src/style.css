@@ -178,3 +178,54 @@ select#protocol-select:focus { border-color: var(--accent); }
   cursor: pointer;
 }
 
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.badge-green { background-color: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+.badge-blue { background-color: rgba(59, 130, 246, 0.12); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
+.badge-yellow { background-color: rgba(245, 158, 11, 0.12); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.2); }
+.badge-red { background-color: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+/* Risk Badges */
+.badge-risk-low { background-color: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+.badge-risk-medium { background-color: rgba(245, 158, 11, 0.12); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.2); }
+.badge-risk-high { background-color: rgba(249, 115, 22, 0.12); color: #f97316; border: 1px solid rgba(249, 115, 22, 0.2); }
+.badge-risk-critical { background-color: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+/* Hardware Row styling */
+.hw-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.06);
+}
+.hw-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.hw-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+.hw-recom {
+  font-size: 10px;
+  color: var(--text-dim);
+  background: rgba(16, 185, 129, 0.06);
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin-top: 8px;
+  line-height: 1.4;
+  border-left: 3px solid var(--accent);
+}
+

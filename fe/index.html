@@ -72,43 +72,19 @@
             <div class="status-row"><span class="status-label">State</span><span id="status-state" class="status-value">Idle</span></div>
             <div class="status-row"><span class="status-label">Tick</span><span id="status-tick" class="status-value">—</span></div>
           </div>
+        </div>
+
         <div class="panel-section">
-          <h3>PER Model Settings</h3>
-          <div class="setting-row">
-            <label for="per-loss-rate">Baseline Loss: <span id="val-loss-rate">0%</span></label>
-            <input type="range" id="per-loss-rate" min="0" max="100" value="0" step="5" />
+          <h3>Hardware Suitability</h3>
+          <div id="hardware-suitability">
+            <p class="hint">Select a protocol to inspect</p>
           </div>
-          <div class="setting-row">
-            <label for="per-max-dist">Max Range (px): <span id="val-max-dist">300</span></label>
-            <input type="range" id="per-max-dist" min="100" max="1000" value="300" step="25" />
-          </div>
-          <div class="setting-row">
-            <label for="per-fire-penalty">Fire Penalty: <span id="val-fire-penalty">40%</span></label>
-            <input type="range" id="per-fire-penalty" min="0" max="100" value="40" step="10" />
-          </div>
-          <div class="setting-row">
-            <label for="per-delay-factor">Delay Factor: <span id="val-delay-factor">0.0</span></label>
-            <input type="range" id="per-delay-factor" min="0" max="5" value="0" step="0.5" />
-          </div>
-          <div class="setting-row">
-            <label for="per-jitter-ticks">Max Jitter (ticks): <span id="val-jitter-ticks">0</span></label>
-            <input type="range" id="per-jitter-ticks" min="0" max="5" value="0" step="1" />
-          </div>
-          <div class="setting-row" style="flex-direction: row; align-items: center; justify-content: space-between;">
-            <label for="per-csma-enabled" style="margin-bottom: 0;">Enable CSMA/CA</label>
-            <input type="checkbox" id="per-csma-enabled" checked style="width: auto; cursor: pointer; accent-color: var(--primary);" />
-          </div>
-          <div class="setting-row" style="flex-direction: row; align-items: center; justify-content: space-between;">
-            <label for="per-smoke-propagation-enabled" style="margin-bottom: 0;">Enable Fire Propagation</label>
-            <input type="checkbox" id="per-smoke-propagation-enabled" checked style="width: auto; cursor: pointer; accent-color: var(--primary);" />
-          </div>
-          <div class="setting-row">
-            <label for="per-smoke-increment">Propagation Rate: <span id="val-smoke-increment">40 PPM</span></label>
-            <input type="range" id="per-smoke-increment" min="5" max="150" value="40" step="5" />
-          </div>
-          <div class="setting-row">
-            <label for="per-max-ticks">Max Ticks: <span id="val-max-ticks">80</span></label>
-            <input type="range" id="per-max-ticks" min="20" max="300" value="80" step="10" />
+        </div>
+
+        <div class="panel-section">
+          <h3>Floor Network Analysis</h3>
+          <div id="floor-analysis">
+            <p class="hint">Select a floor and run convergence</p>
           </div>
         </div>
 

@@ -57,7 +57,7 @@ class SimulateRequest(BaseModel):
     delay_factor: float = 0.0
     jitter_ticks: int = 0
     csma_enabled: bool = True
-    smoke_propagation_enabled: bool = True
+    smoke_propagation_enabled: bool = False
     smoke_increment: float = 40.0
 
 class FireRequest(BaseModel):

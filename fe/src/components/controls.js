@@ -2,7 +2,7 @@ import { state } from '../state.js';
 import { runSimulation, triggerFireIncident, resetSimulation } from '../api.js';
 import { setStatus, sleep } from '../utils/helpers.js';
 import { updateNodeVisuals, updateRouteLines, buildFloorSVGs } from './floorSvg.js';
-import { updateRoutingTable } from './sidebar.js';
+import { updateRoutingTable, updateHardwareSuitability, updateFloorAnalysis } from './sidebar.js';
 
 export function goToFloor(f) {
   state.currentFloor = f;
@@ -14,6 +14,7 @@ export function goToFloor(f) {
   });
 
   updateRoutingTable();
+  updateFloorAnalysis();
 }
 
 export async function runConvergence() {
@@ -31,15 +32,15 @@ export async function runConvergence() {
   setStatus('Protocol', protocol);
   setStatus('State', 'Converging…');
 
-  const lossRate = parseFloat(document.getElementById('per-loss-rate').value) / 100;
-  const maxDistance = parseFloat(document.getElementById('per-max-dist').value);
-  const firePenalty = parseFloat(document.getElementById('per-fire-penalty').value) / 100;
-  const maxTicks = parseInt(document.getElementById('per-max-ticks').value);
-  const delayFactor = parseFloat(document.getElementById('per-delay-factor').value);
-  const jitterTicks = parseInt(document.getElementById('per-jitter-ticks').value);
-  const csmaEnabled = document.getElementById('per-csma-enabled').checked;
-  const smokePropagationEnabled = document.getElementById('per-smoke-propagation-enabled').checked;
-  const smokeIncrement = parseFloat(document.getElementById('per-smoke-increment').value);
+  const lossRate = 0.0;
+  const maxDistance = 300.0;
+  const firePenalty = 0.4;
+  const maxTicks = 80;
+  const delayFactor = 0.0;
+  const jitterTicks = 0;
+  const csmaEnabled = true;
+  const smokePropagationEnabled = false;
+  const smokeIncrement = 40.0;
 
   try {
     const data = await runSimulation(protocol, lossRate, maxDistance, firePenalty, maxTicks, delayFactor, jitterTicks, csmaEnabled, smokePropagationEnabled, smokeIncrement);
@@ -95,6 +96,7 @@ export async function playTimeline(timeline, phase) {
     updateNodeVisuals();
     updateRouteLines();
     updateRoutingTable();
+    updateFloorAnalysis();
 
     const delay = timeline.length > 20 ? 80 : 180;
     await sleep(delay);
@@ -331,60 +333,15 @@ export function bindControls() {
     });
   }
 
-  // Bind PER Settings sliders
-  const sliderLoss = document.getElementById('per-loss-rate');
-  const spanLoss = document.getElementById('val-loss-rate');
-  if (sliderLoss && spanLoss) {
-    sliderLoss.addEventListener('input', () => {
-      spanLoss.textContent = `${sliderLoss.value}%`;
-    });
-  }
-
-  const sliderDist = document.getElementById('per-max-dist');
-  const spanDist = document.getElementById('val-max-dist');
-  if (sliderDist && spanDist) {
-    sliderDist.addEventListener('input', () => {
-      spanDist.textContent = sliderDist.value;
-    });
-  }
-
-  const sliderFire = document.getElementById('per-fire-penalty');
-  const spanFire = document.getElementById('val-fire-penalty');
-  if (sliderFire && spanFire) {
-    sliderFire.addEventListener('input', () => {
-      spanFire.textContent = `${sliderFire.value}%`;
-    });
-  }
-
-  const sliderTicks = document.getElementById('per-max-ticks');
-  const spanTicks = document.getElementById('val-max-ticks');
-  if (sliderTicks && spanTicks) {
-    sliderTicks.addEventListener('input', () => {
-      spanTicks.textContent = sliderTicks.value;
-    });
-  }
-
-  const sliderDelay = document.getElementById('per-delay-factor');
-  const spanDelay = document.getElementById('val-delay-factor');
-  if (sliderDelay && spanDelay) {
-    sliderDelay.addEventListener('input', () => {
-      spanDelay.textContent = parseFloat(sliderDelay.value).toFixed(1);
-    });
-  }
-
-  const sliderJitter = document.getElementById('per-jitter-ticks');
-  const spanJitter = document.getElementById('val-jitter-ticks');
-  if (sliderJitter && spanJitter) {
-    sliderJitter.addEventListener('input', () => {
-      spanJitter.textContent = sliderJitter.value;
-    });
-  }
-
-  const sliderSmokeInc = document.getElementById('per-smoke-increment');
-  const spanSmokeInc = document.getElementById('val-smoke-increment');
-  if (sliderSmokeInc && spanSmokeInc) {
-    sliderSmokeInc.addEventListener('input', () => {
-      spanSmokeInc.textContent = `${sliderSmokeInc.value} PPM`;
+  // Bind Protocol Select
+  const protocolSelect = document.getElementById('protocol-select');
+  if (protocolSelect) {
+    // Initial display
+    updateHardwareSuitability(protocolSelect.value);
+    updateFloorAnalysis();
+    // On change display
+    protocolSelect.addEventListener('change', (e) => {
+      updateHardwareSuitability(e.target.value);
     });
   }
 
