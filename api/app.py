@@ -38,6 +38,12 @@ TOPOLOGY_PATH = os.path.join(
     "topology_extreme.json",
 )
 
+BUILDING_LAYOUT_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "topologies",
+    "building_layout.json",
+)
+
 # ---------------------------------------------------------------------------
 # Pydantic request models
 # ---------------------------------------------------------------------------
@@ -53,6 +59,7 @@ class SimulateRequest(BaseModel):
 
 class FireRequest(BaseModel):
     node_id: str
+    smoke_level: Optional[float] = None
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -64,6 +71,8 @@ def _snapshot(network: MeshNetwork) -> Dict[str, Dict[str, Any]]:
             "cost": node.cost,
             "next_hop": node.points_to.id if node.points_to else None,
             "on_fire": node.on_fire,
+            "smoke_level": node.smoke_level,
+            "smoke_threshold": node.smoke_threshold,
         }
         for node_id, node in network.nodes.items()
     }
@@ -102,17 +111,90 @@ def _run_ticks(network: MeshNetwork, max_ticks: int = 80, stability_window: int 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+@app.get("/api/building-layout")
+def get_building_layout():
+    """Return the static architectural blueprint of the building (corridors)."""
+    if not os.path.exists(BUILDING_LAYOUT_PATH):
+        raise HTTPException(404, f"Building layout not found at {BUILDING_LAYOUT_PATH}")
+    with open(BUILDING_LAYOUT_PATH, "r") as f:
+        return json.load(f)
+
+
 @app.get("/api/topology")
 def get_topology():
     """Return the building topology structure and node positions for rendering."""
     with open(TOPOLOGY_PATH, "r") as f:
         topo = json.load(f)
     node_ids = list(topo.get("nodes", {}).keys())
+    generated = generate_positions(node_ids)
+    
+    positions = {}
+    for nid, props in topo.get("nodes", {}).items():
+        if "x" in props and "y" in props:
+            positions[nid] = {
+                "floor": props.get("floor", 0),
+                "x": props["x"],
+                "y": props["y"],
+                "type": props.get("type", "hallway"),
+                "label": props.get("label", nid),
+            }
+        else:
+            positions[nid] = generated.get(nid, {"floor": 0, "x": 500, "y": 200, "type": "hallway", "label": nid})
+            
     return {
         "nodes": topo.get("nodes", {}),
         "links": topo.get("links", []),
-        "node_positions": generate_positions(node_ids),
+        "node_positions": positions,
     }
+
+
+@app.post("/api/topology")
+def save_topology(payload: Dict[str, Any]):
+    """Save the updated topology configuration (nodes, links, and positions) to JSON."""
+    backup_path = TOPOLOGY_PATH + ".bak"
+    if not os.path.exists(backup_path) and os.path.exists(TOPOLOGY_PATH):
+        import shutil
+        shutil.copyfile(TOPOLOGY_PATH, backup_path)
+
+    nodes_data = {}
+    positions = payload.get("node_positions", {})
+    for nid, props in payload.get("nodes", {}).items():
+        pos = positions.get(nid, {})
+        nodes_data[nid] = {
+            "is_exit": props.get("is_exit", False),
+            "floor": pos.get("floor", 0),
+            "x": pos.get("x", 500),
+            "y": pos.get("y", 200),
+            "type": pos.get("type", "hallway"),
+            "label": pos.get("label", nid),
+            "smoke_threshold": float(props.get("smoke_threshold", 400.0))
+        }
+
+    updated_topo = {
+        "nodes": nodes_data,
+        "links": payload.get("links", [])
+    }
+
+    with open(TOPOLOGY_PATH, "w") as f:
+        json.dump(updated_topo, f, indent=2)
+
+    # Reset active simulation
+    state["network"] = None
+    state["protocol"] = None
+    return {"status": "saved"}
+
+
+@app.post("/api/topology/revert")
+def revert_topology():
+    """Restore the default topology from the backup file."""
+    backup_path = TOPOLOGY_PATH + ".bak"
+    if os.path.exists(backup_path):
+        import shutil
+        shutil.copyfile(backup_path, TOPOLOGY_PATH)
+        
+    state["network"] = None
+    state["protocol"] = None
+    return {"status": "reverted"}
 
 
 @app.post("/api/simulate")
@@ -148,7 +230,7 @@ def simulate(req: SimulateRequest):
 
 @app.post("/api/fire")
 def fire(req: FireRequest):
-    """Trigger fire on a node and run recovery ticks."""
+    """Trigger fire or adjust smoke level on a node and run recovery ticks."""
     if state["network"] is None:
         raise HTTPException(400, "No simulation running. Call /api/simulate first.")
 
@@ -159,10 +241,18 @@ def fire(req: FireRequest):
     node = network.nodes[req.node_id]
     if node.is_exit:
         raise HTTPException(400, "Cannot set fire on an exit node.")
-    if node.on_fire:
-        raise HTTPException(400, f"Node '{req.node_id}' is already on fire.")
 
-    node.trigger_fire()
+    if req.smoke_level is not None:
+        node.smoke_level = req.smoke_level
+        if node.smoke_level >= node.smoke_threshold:
+            if not node.on_fire:
+                node.trigger_fire()
+        else:
+            # If smoke was lowered, clear fire alarm
+            node.on_fire = False
+    else:
+        # Trigger fire instantly by default
+        node.trigger_fire()
 
     # Run recovery with a wider stability window to account for healing propagation
     timeline, converged, ticks_taken = _run_ticks(network, max_ticks=80, stability_window=12)
