@@ -204,6 +204,7 @@ class Node:
         self.incoming_dsdv_updates = JacobiQueue(self)
         self.incoming_aodv_packets = JacobiQueue(self)
         self.incoming_dios = JacobiQueue(self)
+        self.incoming_gradient_updates = JacobiQueue(self)
         self.tick_counter = 0
         self.last_heartbeat_from: Dict[str, int] = {}
         self._neighbor_confirmed_up: Dict[str, bool] = {}
@@ -403,6 +404,7 @@ class Node:
         self.incoming_dsdv_updates.swap_staged_to_active(self.tick_counter)
         self.incoming_aodv_packets.swap_staged_to_active(self.tick_counter)
         self.incoming_dios.swap_staged_to_active(self.tick_counter)
+        self.incoming_gradient_updates.swap_staged_to_active(self.tick_counter)
         
         # Broadcast keepalive ping to transmittable neighbors with physical distance loss checks
         if self.is_operational:

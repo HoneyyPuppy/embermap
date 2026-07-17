@@ -100,6 +100,12 @@ def _run_ticks(network: MeshNetwork, max_ticks: int = 80, stability_window: int 
     timeline: List[Dict[str, Any]] = []
     history: List[Dict] = []
 
+    def _strip_stats(snap):
+        return {
+            node_id: {k: v for k, v in node_snap.items() if k != "tx_msg_count"}
+            for node_id, node_snap in snap.items()
+        }
+
     for tick in range(1, max_ticks + 1):
         snap = _snapshot(network)
         history.append(snap)
@@ -108,7 +114,7 @@ def _run_ticks(network: MeshNetwork, max_ticks: int = 80, stability_window: int 
 
         # Check if routing tables have been identical for `stability_window` consecutive ticks
         if len(history) >= stability_window and all(
-            history[i] == history[0] for i in range(1, len(history))
+            _strip_stats(history[i]) == _strip_stats(history[0]) for i in range(1, len(history))
         ):
             timeline.append({"tick": tick, "nodes": snap})
             return timeline, True, tick
@@ -116,7 +122,7 @@ def _run_ticks(network: MeshNetwork, max_ticks: int = 80, stability_window: int 
         changed = network.tick()
         timeline.append({"tick": tick, "nodes": snap})
 
-        if not changed and len(history) >= 2 and history[-1] == history[-2]:
+        if not changed and len(history) >= 2 and _strip_stats(history[-1]) == _strip_stats(history[-2]):
             # No change and states match — early exit
             pass  # keep going a few more ticks for proactive protocols
 

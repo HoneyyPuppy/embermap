@@ -300,6 +300,7 @@ class MeshNetwork:
             "incoming_dsdv_updates",
             "incoming_aodv_packets",
             "incoming_dios",
+            "incoming_gradient_updates",
         )
         packets_in_flight = any(
             isinstance(getattr(node, queue_name, None), JacobiQueue)
