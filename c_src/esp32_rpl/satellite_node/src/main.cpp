@@ -28,6 +28,12 @@ const uint16_t RANK_INCREASE = 256;
 uint8_t parentRoutePath[MAX_ROUTE_PATH];
 uint8_t parentRoutePathLen = 0;
 
+// Biến phục vụ cơ chế Auto-Channel Scanning
+bool isScanning = false;
+uint8_t scanChannel = 1;
+unsigned long lastChannelSwitchTime = 0;
+const unsigned long CHANNEL_LISTEN_TIME = 800; // Thời gian chờ trên mỗi kênh (ms)
+
 // Timers
 unsigned long lastSensorReadTime = 0;
 unsigned long lastDioRebroadcastTime = 0;
@@ -170,6 +176,12 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
             dodagVersion = incomingPacket.version;
             lastParentContactTime = millis();
             
+            // Tắt chế độ quét kênh nếu đang dò tìm
+            if (isScanning) {
+                isScanning = false;
+                Serial.printf("[Scan] Đã tìm thấy tuyến đường trên Kênh %d! Khóa kênh hoạt động.\n", scanChannel);
+            }
+            
             // Lưu lịch sử đường truyền của Parent
             memcpy(parentRoutePath, incomingPacket.routePath, incomingPacket.routePathLen);
             parentRoutePathLen = incomingPacket.routePathLen;
@@ -191,6 +203,12 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
             } else {
                 Serial.println("[RPL Warning] Không thể chuyển tiếp: Chưa có Parent!");
             }
+        }
+    }
+    else if (incomingPacket.packetType == PACKET_ROUTE_REQUEST) {
+        if (hasParent) {
+            Serial.println("[RPL] Nhận yêu cầu quét kênh (Route Request) -> Phát lại phản hồi DIO.");
+            broadcastDio();
         }
     }
 }
@@ -244,6 +262,33 @@ void loop() {
         hasParent = false;
         memset(parentMac, 0, 6);
         parentRoutePathLen = 0; // Reset lịch sử đường truyền
+    }
+
+    // Cơ chế Auto-Channel Scanning chủ động khi mất định tuyến
+    if (!hasParent) {
+        if (!isScanning) {
+            isScanning = true;
+            scanChannel = 1;
+            lastChannelSwitchTime = currentMillis - CHANNEL_LISTEN_TIME; // Kích hoạt ngay lập tức
+            Serial.println("[Scan] Mất định tuyến. Bắt đầu chế độ tự động quét kênh sóng...");
+        }
+
+        if (isScanning && (currentMillis - lastChannelSwitchTime >= CHANNEL_LISTEN_TIME)) {
+            // Chuyển kênh vòng tròn từ 1 đến 11
+            scanChannel = (scanChannel % 11) + 1;
+            WiFiService::forceChannel(scanChannel);
+            
+            // Gửi gói Route Request dò tìm chủ động
+            MeshPacket req = {};
+            req.packetType = PACKET_ROUTE_REQUEST;
+            memcpy(req.sourceMac, myMac, 6);
+            req.id = SATELLITE_ID;
+            
+            esp_now_send(broadcastMac, (uint8_t *)&req, sizeof(req));
+            Serial.printf("[Scan] Đang dò Kênh %d... Phát Route Request.\n", scanChannel);
+            
+            lastChannelSwitchTime = currentMillis;
+        }
     }
 
     if (currentMillis - lastSensorReadTime >= SENSOR_READ_INTERVAL) {

@@ -81,6 +81,10 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
                           incomingPacket.sourceMac[0], incomingPacket.sourceMac[1], incomingPacket.id);
         }
     }
+    else if (incomingPacket.packetType == PACKET_ROUTE_REQUEST) {
+        Serial.println("[RPL Master] Nhận yêu cầu quét kênh (Route Request) -> Quảng bá DIO phản hồi.");
+        broadcastDio();
+    }
 }
 
 // ==================== SETUP ====================

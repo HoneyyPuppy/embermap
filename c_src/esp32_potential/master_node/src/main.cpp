@@ -70,6 +70,10 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
             }
         }
     }
+    else if (incomingPacket.packetType == PACKET_ROUTE_REQUEST) {
+        Serial.println("[APF Master] Nhận yêu cầu quét kênh (Route Request) -> Quảng bá thế năng phản hồi.");
+        broadcastPotential();
+    }
 }
 
 // ==================== SETUP ====================
