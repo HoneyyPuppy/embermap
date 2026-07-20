@@ -166,10 +166,13 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
         }
 
         uint16_t senderRank = incomingPacket.rank;
-        uint16_t calculatedRank = senderRank + RANK_INCREASE;
+        int rssi = recv_info->rx_ctrl->rssi;
+        float linkCost = calculateLinkCost(rssi);
+        uint16_t rankIncrease = (uint16_t)(linkCost * 256.0);
+        uint16_t calculatedRank = senderRank + rankIncrease;
 
-        Serial.printf("[RPL RX] Nhận DIO từ MAC: %02X:%02X... | Sender Rank: %d | Rank tính toán: %d\n",
-                      senderMac[0], senderMac[1], senderRank, calculatedRank);
+        Serial.printf("[RPL RX] Nhận DIO từ MAC: %02X:%02X... | Sender Rank: %d | Rank tính toán: %d (RSSI: %d dBm, LinkCost: %.1f)\n",
+                      senderMac[0], senderMac[1], senderRank, calculatedRank, rssi, linkCost);
 
         if (!hasParent || calculatedRank < myRank || (hasParent && memcmp(parentMac, senderMac, 6) == 0)) {
             myRank = calculatedRank;

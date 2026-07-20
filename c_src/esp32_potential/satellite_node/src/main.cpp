@@ -31,6 +31,7 @@ typedef struct {
     unsigned long lastSeen;
     uint8_t routePath[MAX_ROUTE_PATH];
     uint8_t routePathLen;
+    float linkCost;
 } Neighbor;
 
 #define MAX_NEIGHBORS 10
@@ -63,9 +64,10 @@ int currentGas = 0;
 bool isEmergency = false;
 
 // ==================== CẬP NHẬT/THÊM LÁNG GIỀNG VÀO BẢNG ====================
-void updateNeighbor(const uint8_t *mac, float potential, uint8_t hopCount, const uint8_t *routePath, uint8_t routePathLen) {
+void updateNeighbor(const uint8_t *mac, float potential, uint8_t hopCount, const uint8_t *routePath, uint8_t routePathLen, int rssi) {
     unsigned long now = millis();
     int foundIdx = -1;
+    float linkCost = calculateLinkCost(rssi);
 
     for (int i = 0; i < neighborCount; i++) {
         if (memcmp(neighbors[i].mac, mac, 6) == 0) {
@@ -80,6 +82,7 @@ void updateNeighbor(const uint8_t *mac, float potential, uint8_t hopCount, const
         neighbors[foundIdx].lastSeen = now;
         memcpy(neighbors[foundIdx].routePath, routePath, routePathLen);
         neighbors[foundIdx].routePathLen = routePathLen;
+        neighbors[foundIdx].linkCost = linkCost;
     } else {
         if (neighborCount < MAX_NEIGHBORS) {
             memcpy(neighbors[neighborCount].mac, mac, 6);
@@ -88,8 +91,10 @@ void updateNeighbor(const uint8_t *mac, float potential, uint8_t hopCount, const
             neighbors[neighborCount].lastSeen = now;
             memcpy(neighbors[neighborCount].routePath, routePath, routePathLen);
             neighbors[neighborCount].routePathLen = routePathLen;
+            neighbors[neighborCount].linkCost = linkCost;
             neighborCount++;
-            Serial.printf("[APF Table] Thêm láng giềng mới: %02X:%02X...\n", mac[0], mac[1]);
+            Serial.printf("[APF Table] Thêm láng giềng mới: %02X:%02X... | RSSI = %d dBm, LinkCost = %.1f\n", 
+                          mac[0], mac[1], rssi, linkCost);
         }
     }
 }
@@ -128,8 +133,10 @@ bool selectNextHop() {
         if (pathContainsNode(neighbors[i].routePath, neighbors[i].routePathLen, SATELLITE_ID)) {
             continue;
         }
-        if (neighbors[i].potential < minPotential) {
-            minPotential = neighbors[i].potential;
+        // Tính toán thế năng hiệu dụng cộng thêm chi phí đường truyền dựa trên cường độ sóng
+        float effectivePotential = neighbors[i].potential + neighbors[i].linkCost * 100.0;
+        if (effectivePotential < minPotential) {
+            minPotential = effectivePotential;
             minIdx = i;
         }
     }
@@ -137,7 +144,7 @@ bool selectNextHop() {
     if (minIdx != -1 && minPotential < totalPotential) {
         memcpy(nextHopMac, neighbors[minIdx].mac, 6);
         myHopCount = neighbors[minIdx].hopCount + 1;
-        basePotential = myHopCount * 100.0;
+        basePotential = neighbors[minIdx].potential + neighbors[minIdx].linkCost * 100.0;
         hasRoute = true;
 
         // Cập nhật lịch sử đường truyền từ Parent được chọn
@@ -221,7 +228,8 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
     memcpy(&incomingPacket, incomingDataRaw, sizeof(incomingPacket));
 
     if (incomingPacket.packetType == PACKET_POTENTIAL_ADVERT) {
-        updateNeighbor(senderMac, incomingPacket.potential, incomingPacket.hopCount, incomingPacket.routePath, incomingPacket.routePathLen);
+        int rssi = recv_info->rx_ctrl->rssi;
+        updateNeighbor(senderMac, incomingPacket.potential, incomingPacket.hopCount, incomingPacket.routePath, incomingPacket.routePathLen, rssi);
         if (selectNextHop()) {
             if (isScanning) {
                 isScanning = false;

@@ -146,7 +146,9 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
             return;
         }
 
-        float newCost = incomingPacket.routingCost + 1.0;
+        int rssi = recv_info->rx_ctrl->rssi;
+        float linkCost = calculateLinkCost(rssi);
+        float newCost = incomingPacket.routingCost + linkCost;
 
         if (!hasRoute || newCost < myCost || (hasRoute && memcmp(nextHopMac, senderMac, 6) == 0)) {
             myCost = newCost;
@@ -163,8 +165,8 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
             parentRoutePathLen = incomingPacket.routePathLen;
 
             updateNextHopPeer(senderMac);
-            Serial.printf("[Mesh] Cập nhật Route qua: %02X:%02X:%02X:%02X:%02X:%02X | Cost = %.1f\n", 
-                          senderMac[0], senderMac[1], senderMac[2], senderMac[3], senderMac[4], senderMac[5], myCost);
+            Serial.printf("[Mesh] Cập nhật Route qua: %02X:%02X:%02X:%02X:%02X:%02X | Cost = %.1f (RSSI = %d dBm, LinkCost = %.1f)\n", 
+                          senderMac[0], senderMac[1], senderMac[2], senderMac[3], senderMac[4], senderMac[5], myCost, rssi, linkCost);
             
             // In debug chuỗi routePath
             Serial.print("[Mesh RoutePath] Tuyến đường: ");
