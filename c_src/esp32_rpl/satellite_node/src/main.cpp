@@ -24,6 +24,10 @@ unsigned long lastParentContactTime = 0;
 const unsigned long PARENT_TIMEOUT = 12000;
 const uint16_t RANK_INCREASE = 256;
 
+// Lịch sử đường truyền về Master (để chống lặp vòng định tuyến)
+uint8_t parentRoutePath[MAX_ROUTE_PATH];
+uint8_t parentRoutePathLen = 0;
+
 // Timers
 unsigned long lastSensorReadTime = 0;
 unsigned long lastDioRebroadcastTime = 0;
@@ -102,6 +106,14 @@ void broadcastDio() {
     packet.rank = myRank;
     packet.version = dodagVersion;
 
+    // Đính kèm ID bản thân vào routePath để truyền tiếp (Loop Prevention)
+    memcpy(packet.routePath, parentRoutePath, parentRoutePathLen);
+    packet.routePathLen = parentRoutePathLen;
+    if (packet.routePathLen < MAX_ROUTE_PATH) {
+        packet.routePath[packet.routePathLen] = SATELLITE_ID;
+        packet.routePathLen++;
+    }
+
     esp_err_t result = esp_now_send(broadcastMac, (uint8_t *)&packet, sizeof(packet));
     Serial.printf("[RPL] Phát tiếp DIO (Rank = %d, Ver = %d) -> %s\n", 
                   myRank, dodagVersion, result == ESP_OK ? "OK" : "FAIL");
@@ -141,6 +153,12 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
     memcpy(&incomingPacket, incomingDataRaw, sizeof(incomingPacket));
 
     if (incomingPacket.packetType == PACKET_RPL_DIO) {
+        // Kiểm tra tránh lặp vòng định tuyến
+        if (pathContainsNode(incomingPacket.routePath, incomingPacket.routePathLen, SATELLITE_ID)) {
+            Serial.println("[RPL Warning] Phát hiện lặp vòng định tuyến (Loop)! Bỏ qua gói cập nhật.");
+            return;
+        }
+
         uint16_t senderRank = incomingPacket.rank;
         uint16_t calculatedRank = senderRank + RANK_INCREASE;
 
@@ -152,6 +170,10 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
             dodagVersion = incomingPacket.version;
             lastParentContactTime = millis();
             
+            // Lưu lịch sử đường truyền của Parent
+            memcpy(parentRoutePath, incomingPacket.routePath, incomingPacket.routePathLen);
+            parentRoutePathLen = incomingPacket.routePathLen;
+
             updateParentPeer(senderMac);
             Serial.printf("[RPL Update] Cập nhật Rank = %d qua Parent: %02X:%02X...\n", 
                           myRank, parentMac[0], parentMac[1]);
@@ -221,6 +243,7 @@ void loop() {
         myRank = 0xFFFF;
         hasParent = false;
         memset(parentMac, 0, 6);
+        parentRoutePathLen = 0; // Reset lịch sử đường truyền
     }
 
     if (currentMillis - lastSensorReadTime >= SENSOR_READ_INTERVAL) {

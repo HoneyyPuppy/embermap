@@ -22,6 +22,10 @@ bool hasRoute = false;                     // Trạng thái đã tìm được �
 unsigned long lastRouteUpdateReceived = 0; // Thời điểm nhận được gói cập nhật định tuyến cuối cùng
 const unsigned long ROUTE_TIMEOUT = 12000;  // Quá thời gian 12 giây không nhận tin -> coi như mất tuyến
 
+// Lịch sử đường truyền về Master (để chống lặp vòng định tuyến)
+uint8_t parentRoutePath[MAX_ROUTE_PATH];
+uint8_t parentRoutePathLen = 0;
+
 // Timers
 unsigned long lastSensorReadTime = 0;
 unsigned long lastRouteBroadcastTime = 0;
@@ -77,6 +81,14 @@ void rebroadcastRouteUpdate() {
     packet.emergency = false;
     packet.routingCost = myCost;
 
+    // Đính kèm ID bản thân vào routePath để truyền tiếp (Loop Prevention)
+    memcpy(packet.routePath, parentRoutePath, parentRoutePathLen);
+    packet.routePathLen = parentRoutePathLen;
+    if (packet.routePathLen < MAX_ROUTE_PATH) {
+        packet.routePath[packet.routePathLen] = SATELLITE_ID;
+        packet.routePathLen++;
+    }
+
     esp_err_t result = esp_now_send(broadcastMac, (uint8_t *)&packet, sizeof(packet));
     Serial.printf("[Mesh] Quảng bá lại tuyến (Cost = %.1f) -> %s\n", myCost, result == ESP_OK ? "OK" : "FAIL");
 }
@@ -122,15 +134,32 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
     memcpy(&incomingPacket, incomingDataRaw, sizeof(incomingPacket));
 
     if (incomingPacket.packetType == PACKET_ROUTE_UPDATE) {
+        // Kiểm tra tránh lặp vòng định tuyến
+        if (pathContainsNode(incomingPacket.routePath, incomingPacket.routePathLen, SATELLITE_ID)) {
+            Serial.println("[Mesh Warning] Phát hiện lặp vòng định tuyến (Loop)! Bỏ qua gói cập nhật.");
+            return;
+        }
+
         float newCost = incomingPacket.routingCost + 1.0;
 
         if (!hasRoute || newCost < myCost || (hasRoute && memcmp(nextHopMac, senderMac, 6) == 0)) {
             myCost = newCost;
             lastRouteUpdateReceived = millis();
             
+            // Lưu lịch sử đường truyền của Parent
+            memcpy(parentRoutePath, incomingPacket.routePath, incomingPacket.routePathLen);
+            parentRoutePathLen = incomingPacket.routePathLen;
+
             updateNextHopPeer(senderMac);
             Serial.printf("[Mesh] Cập nhật Route qua: %02X:%02X:%02X:%02X:%02X:%02X | Cost = %.1f\n", 
                           senderMac[0], senderMac[1], senderMac[2], senderMac[3], senderMac[4], senderMac[5], myCost);
+            
+            // In debug chuỗi routePath
+            Serial.print("[Mesh RoutePath] Tuyến đường: ");
+            for (uint8_t i = 0; i < parentRoutePathLen; i++) {
+                Serial.printf("%d -> ", parentRoutePath[i]);
+            }
+            Serial.printf("%d (Bản thân)\n", SATELLITE_ID);
         }
     }
     else if (incomingPacket.packetType == PACKET_SENSOR_DATA) {
@@ -196,6 +225,7 @@ void loop() {
         myCost = 999.0;
         hasRoute = false;
         memset(nextHopMac, 0, 6);
+        parentRoutePathLen = 0; // Reset lịch sử đường truyền
     }
 
     if (currentMillis - lastSensorReadTime >= SENSOR_READ_INTERVAL) {

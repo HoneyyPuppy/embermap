@@ -31,11 +31,15 @@ void broadcastRouteUpdate() {
     memcpy(packet.sourceMac, myMac, 6);
     memcpy(packet.destMac, myMac, 6);
     memset(packet.forwardMac, 0, 6);
-    packet.id = 0;
+    packet.id = 0; // Master Node ID = 0
     packet.temp = 0.0;
     packet.gasRaw = 0;
     packet.emergency = false;
     packet.routingCost = 0.0;
+
+    // Thiết lập routePath bắt đầu từ Master Node (ID = 0)
+    packet.routePath[0] = 0;
+    packet.routePathLen = 1;
 
     esp_err_t result = esp_now_send(broadcastMac, (uint8_t *)&packet, sizeof(packet));
     Serial.printf("[Mesh] Rebroadcast routing (Cost = 0.0) -> %s\n", result == ESP_OK ? "SUCCESS" : "FAIL");

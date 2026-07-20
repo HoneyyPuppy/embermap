@@ -29,6 +29,8 @@ typedef struct {
     float potential;
     uint8_t hopCount;
     unsigned long lastSeen;
+    uint8_t routePath[MAX_ROUTE_PATH];
+    uint8_t routePathLen;
 } Neighbor;
 
 #define MAX_NEIGHBORS 10
@@ -38,6 +40,10 @@ int neighborCount = 0;
 // Next Hop MAC đang dùng để truyền dữ liệu
 uint8_t nextHopMac[6] = {0, 0, 0, 0, 0, 0};
 bool hasRoute = false;
+
+// Lịch sử đường truyền về Master (để chống lặp vòng định tuyến)
+uint8_t parentRoutePath[MAX_ROUTE_PATH];
+uint8_t parentRoutePathLen = 0;
 
 // Timers
 unsigned long lastSensorReadTime = 0;
@@ -51,7 +57,7 @@ int currentGas = 0;
 bool isEmergency = false;
 
 // ==================== CẬP NHẬT/THÊM LÁNG GIỀNG VÀO BẢNG ====================
-void updateNeighbor(const uint8_t *mac, float potential, uint8_t hopCount) {
+void updateNeighbor(const uint8_t *mac, float potential, uint8_t hopCount, const uint8_t *routePath, uint8_t routePathLen) {
     unsigned long now = millis();
     int foundIdx = -1;
 
@@ -66,12 +72,16 @@ void updateNeighbor(const uint8_t *mac, float potential, uint8_t hopCount) {
         neighbors[foundIdx].potential = potential;
         neighbors[foundIdx].hopCount = hopCount;
         neighbors[foundIdx].lastSeen = now;
+        memcpy(neighbors[foundIdx].routePath, routePath, routePathLen);
+        neighbors[foundIdx].routePathLen = routePathLen;
     } else {
         if (neighborCount < MAX_NEIGHBORS) {
             memcpy(neighbors[neighborCount].mac, mac, 6);
             neighbors[neighborCount].potential = potential;
             neighbors[neighborCount].hopCount = hopCount;
             neighbors[neighborCount].lastSeen = now;
+            memcpy(neighbors[neighborCount].routePath, routePath, routePathLen);
+            neighbors[neighborCount].routePathLen = routePathLen;
             neighborCount++;
             Serial.printf("[APF Table] Thêm láng giềng mới: %02X:%02X...\n", mac[0], mac[1]);
         }
@@ -108,6 +118,10 @@ bool selectNextHop() {
     int minIdx = -1;
 
     for (int i = 0; i < neighborCount; i++) {
+        // Kiểm tra tránh lặp vòng định tuyến
+        if (pathContainsNode(neighbors[i].routePath, neighbors[i].routePathLen, SATELLITE_ID)) {
+            continue;
+        }
         if (neighbors[i].potential < minPotential) {
             minPotential = neighbors[i].potential;
             minIdx = i;
@@ -119,6 +133,10 @@ bool selectNextHop() {
         myHopCount = neighbors[minIdx].hopCount + 1;
         basePotential = myHopCount * 100.0;
         hasRoute = true;
+
+        // Cập nhật lịch sử đường truyền từ Parent được chọn
+        memcpy(parentRoutePath, neighbors[minIdx].routePath, neighbors[minIdx].routePathLen);
+        parentRoutePathLen = neighbors[minIdx].routePathLen;
 
         if (!esp_now_is_peer_exist(nextHopMac)) {
             esp_now_peer_info_t peerInfo = {};
@@ -133,6 +151,7 @@ bool selectNextHop() {
 
     hasRoute = false;
     memset(nextHopMac, 0, 6);
+    parentRoutePathLen = 0; // Reset lịch sử đường truyền
     return false;
 }
 
@@ -149,6 +168,14 @@ void broadcastPotential() {
     packet.emergency = false;
     packet.potential = totalPotential;
     packet.hopCount = myHopCount;
+
+    // Đính kèm ID bản thân vào routePath để truyền tiếp (Loop Prevention)
+    memcpy(packet.routePath, parentRoutePath, parentRoutePathLen);
+    packet.routePathLen = parentRoutePathLen;
+    if (packet.routePathLen < MAX_ROUTE_PATH) {
+        packet.routePath[packet.routePathLen] = SATELLITE_ID;
+        packet.routePathLen++;
+    }
 
     esp_err_t result = esp_now_send(broadcastMac, (uint8_t *)&packet, sizeof(packet));
     Serial.printf("[APF] Quảng bá thế năng U = %.1f (Hop = %d) -> %s\n", 
@@ -188,7 +215,7 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
     memcpy(&incomingPacket, incomingDataRaw, sizeof(incomingPacket));
 
     if (incomingPacket.packetType == PACKET_POTENTIAL_ADVERT) {
-        updateNeighbor(senderMac, incomingPacket.potential, incomingPacket.hopCount);
+        updateNeighbor(senderMac, incomingPacket.potential, incomingPacket.hopCount, incomingPacket.routePath, incomingPacket.routePathLen);
         selectNextHop();
     }
     else if (incomingPacket.packetType == PACKET_SENSOR_DATA) {

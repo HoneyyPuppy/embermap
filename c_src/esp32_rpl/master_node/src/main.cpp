@@ -42,6 +42,10 @@ void broadcastDio() {
     packet.rank = masterRank;
     packet.version = dodagVersion;
 
+    // Thiết lập routePath bắt đầu từ Master Node (ID = 0)
+    packet.routePath[0] = 0;
+    packet.routePathLen = 1;
+
     esp_err_t result = esp_now_send(broadcastMac, (uint8_t *)&packet, sizeof(packet));
     Serial.printf("[RPL Master] Broadcast DIO (Rank = %d, Ver = %d) -> %s\n", 
                   masterRank, dodagVersion, result == ESP_OK ? "SUCCESS" : "FAIL");

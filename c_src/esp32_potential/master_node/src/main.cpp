@@ -38,6 +38,10 @@ void broadcastPotential() {
     packet.potential = 0.0;    // Master U = 0.0
     packet.hopCount = 0;
 
+    // Thiết lập routePath bắt đầu từ Master Node (ID = 0)
+    packet.routePath[0] = 0;
+    packet.routePathLen = 1;
+
     esp_err_t result = esp_now_send(broadcastMac, (uint8_t *)&packet, sizeof(packet));
     Serial.printf("[APF Master] Broadcast Potential (U = 0.0) -> %s\n", result == ESP_OK ? "SUCCESS" : "FAIL");
 }
