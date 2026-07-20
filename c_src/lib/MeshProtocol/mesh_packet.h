@@ -9,6 +9,7 @@
 #define PACKET_RPL_DIO           3   // RPL DIO advertisement
 #define PACKET_RPL_DAO           4   // RPL DAO advertisement
 #define PACKET_POTENTIAL_ADVERT  5   // APF potential advertisement
+#define PACKET_ROUTE_REQUEST     6   // Active routing request for channel probing
 
 #define MAX_ROUTE_PATH           8   // Hạn mức số Hop tối đa để tránh lặp vòng định tuyến
 
