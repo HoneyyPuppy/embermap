@@ -78,5 +78,9 @@ Thumbs.db
 logs/
 images/
 
-esp32/
-.pio/
+c_src/esp32/
+
+# PlatformIO & C Build Directories
+**/.pio/
+**/.vscode/
+**/build/
