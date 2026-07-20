@@ -43,4 +43,12 @@ inline bool pathContainsNode(const uint8_t* path, uint8_t len, uint8_t nodeId) {
     return false;
 }
 
+// Hàm tính toán Cost tăng thêm dựa trên cường độ sóng RSSI (chống chọn đường chập chờn)
+inline float calculateLinkCost(int rssi) {
+    if (rssi >= -60) return 1.0;
+    if (rssi <= -90) return 8.0;
+    // Nội suy tuyến tính từ [-60, -90] sang [1.0, 8.0]
+    return 1.0 + (float)(rssi - (-60)) / (-90 - (-60)) * (8.0 - 1.0);
+}
+
 #endif // MESH_PACKET_H
