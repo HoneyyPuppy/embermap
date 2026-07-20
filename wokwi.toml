@@ -1,0 +1,7 @@
+[wokwi]
+version = 1
+firmware = "esp32_mesh/unified_node/.pio/build/esp32dev/firmware.bin"
+elf = "esp32_mesh/unified_node/.pio/build/esp32dev/firmware.elf"
+
+# Mở cổng Serial của 2 board qua cổng TCP mạng cục bộ
+rfc2217ServerPort = 4000

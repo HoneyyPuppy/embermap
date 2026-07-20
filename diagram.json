@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "author": "Cường Biện",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp1", "top": 0, "left": -180, "attrs": {} },
+    { "type": "board-esp32-devkit-c-v4", "id": "esp2", "top": 0, "left": 180, "attrs": {} }
+  ],
+  "connections": [
+    [ "esp1:TX", "$serialMonitor:RX", "green", [] ],
+    [ "esp1:RX", "$serialMonitor:TX", "yellow", [] ],
+    [ "esp2:GND.1", "esp2:18", "black", [] ],
+    [ "esp2:TX", "esp1:16", "blue", [] ]
+  ],
+  "serialMonitor": {
+    "display": "always"
+  }
+}

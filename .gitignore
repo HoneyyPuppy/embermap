@@ -77,3 +77,6 @@ Thumbs.db
 
 logs/
 images/
+
+esp32/
+.pio/
