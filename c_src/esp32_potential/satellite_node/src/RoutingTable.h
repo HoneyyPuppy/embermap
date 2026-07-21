@@ -34,6 +34,8 @@ public:
     uint8_t getNeighborCount() const { return m_neighborCount; }
     const Neighbor* getNeighbors() const { return m_neighbors; }
     void removeNeighbor(const uint8_t *mac);
+    void setAllowedNeighbors(const uint8_t* allowedList, uint8_t count);
+    bool isAllowedNeighbor(uint8_t neighborId) const;
 
 private:
     uint8_t m_satelliteId;
@@ -47,6 +49,9 @@ private:
 
     uint8_t m_parentRoutePath[MAX_ROUTE_PATH];
     uint8_t m_parentRoutePathLen;
+
+    uint8_t m_allowedNeighbors[10];
+    uint8_t m_allowedCount;
 };
 
 #endif // ROUTING_TABLE_H

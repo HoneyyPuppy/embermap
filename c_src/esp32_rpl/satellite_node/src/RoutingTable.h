@@ -31,6 +31,8 @@ public:
     uint8_t getParentRoutePathLen() const { return m_parentRoutePathLen; }
 
     void removeCandidateAtIndex(uint8_t idx);
+    void setAllowedNeighbors(const uint8_t* allowedList, uint8_t count);
+    bool isAllowedNeighbor(uint8_t neighborId) const;
 
 private:
     uint8_t m_satelliteId;
@@ -44,6 +46,9 @@ private:
 
     uint8_t m_parentRoutePath[MAX_ROUTE_PATH];
     uint8_t m_parentRoutePathLen;
+
+    uint8_t m_allowedNeighbors[10];
+    uint8_t m_allowedCount;
 
     void sortCandidates();
     void syncPrimary();

@@ -8,6 +8,9 @@
 // ID của Satellite Node này
 #define SATELLITE_ID 2
 
+// Cấu hình láng giềng tĩnh (0xFF = Tự động bắt mọi láng giềng dựa trên RSSI)
+const uint8_t ALLOWED_NEIGHBORS[] = {0xFF};
+
 RoutingTable routingTable(SATELLITE_ID);
 MeshNetwork meshNetwork(SATELLITE_ID, routingTable);
 
@@ -165,6 +168,9 @@ void displayTask(void *pvParameters) {
 void setup() {
     Serial.begin(115200);
     SensorService::init("SATELLITE");
+
+    // Thiết lập danh sách bộ lọc láng giềng tĩnh
+    routingTable.setAllowedNeighbors(ALLOWED_NEIGHBORS, sizeof(ALLOWED_NEIGHBORS) / sizeof(ALLOWED_NEIGHBORS[0]));
 
     if (meshNetwork.init()) {
         Serial.println("[RPL Network] Khởi động thành công.");

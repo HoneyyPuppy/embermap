@@ -118,6 +118,9 @@ void MeshNetwork::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
     const uint8_t* senderMac = recv_info->src_addr;
 
     if (packet.packetType == PACKET_POTENTIAL_ADVERT) {
+        if (!m_routingTable.isAllowedNeighbor(packet.id)) {
+            return;
+        }
         int rssi = recv_info->rx_ctrl->rssi;
         m_routingTable.updateNeighbor(senderMac, packet.potential, packet.hopCount, packet.routePath, packet.routePathLen, rssi);
     }

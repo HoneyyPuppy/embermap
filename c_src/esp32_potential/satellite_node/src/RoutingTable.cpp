@@ -1,7 +1,7 @@
 #include "RoutingTable.h"
 
 RoutingTable::RoutingTable(uint8_t satelliteId)
-    : m_satelliteId(satelliteId), m_neighborCount(0), m_hasRoute(false), m_myHopCount(255), m_basePotential(9999.0), m_parentRoutePathLen(0) {
+    : m_satelliteId(satelliteId), m_neighborCount(0), m_hasRoute(false), m_myHopCount(255), m_basePotential(9999.0), m_parentRoutePathLen(0), m_allowedCount(0) {
     memset(m_nextHopMac, 0, 6);
 }
 
@@ -104,4 +104,23 @@ void RoutingTable::removeNeighbor(const uint8_t *mac) {
             break;
         }
     }
+}
+
+void RoutingTable::setAllowedNeighbors(const uint8_t* allowedList, uint8_t count) {
+    m_allowedCount = count > 10 ? 10 : count;
+    if (m_allowedCount > 0 && allowedList != nullptr) {
+        memcpy(m_allowedNeighbors, allowedList, m_allowedCount);
+    }
+}
+
+bool RoutingTable::isAllowedNeighbor(uint8_t neighborId) const {
+    if (m_allowedCount == 0 || (m_allowedCount == 1 && m_allowedNeighbors[0] == 0xFF)) {
+        return true;
+    }
+    for (uint8_t i = 0; i < m_allowedCount; i++) {
+        if (m_allowedNeighbors[i] == neighborId) {
+            return true;
+        }
+    }
+    return false;
 }

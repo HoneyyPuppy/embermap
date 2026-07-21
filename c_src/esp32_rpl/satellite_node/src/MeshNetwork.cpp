@@ -158,6 +158,9 @@ void MeshNetwork::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
     const uint8_t* senderMac = recv_info->src_addr;
 
     if (packet.packetType == PACKET_RPL_DIO) {
+        if (!m_routingTable.isAllowedNeighbor(packet.id)) {
+            return;
+        }
         if (pathContainsNode(packet.routePath, packet.routePathLen, m_satelliteId)) {
             Serial.println("[RPL Warning] Phát hiện lặp vòng định tuyến (Loop)! Bỏ qua gói cập nhật.");
             return;
