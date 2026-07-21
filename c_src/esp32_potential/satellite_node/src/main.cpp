@@ -154,7 +154,7 @@ bool selectNextHop() {
         if (!esp_now_is_peer_exist(nextHopMac)) {
             esp_now_peer_info_t peerInfo = {};
             memcpy(peerInfo.peer_addr, nextHopMac, 6);
-            peerInfo.channel = WIFI_CHANNEL_COMMON;
+            peerInfo.channel = 0; // Tự động sử dụng kênh hoạt động hiện tại
             peerInfo.encrypt = false;
             peerInfo.ifidx = WIFI_IF_STA;
             esp_now_add_peer(&peerInfo);
@@ -285,7 +285,7 @@ void setup() {
 
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, broadcastMac, 6);
-    peerInfo.channel = WIFI_CHANNEL_COMMON;
+    peerInfo.channel = 0; // Tự động sử dụng kênh hoạt động hiện tại
     peerInfo.encrypt = false;
     peerInfo.ifidx = WIFI_IF_STA;
     

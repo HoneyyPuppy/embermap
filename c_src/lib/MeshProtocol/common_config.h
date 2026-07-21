@@ -3,9 +3,9 @@
 
 // ==================== CẤU HÌNH HỆ THỐNG MESH DÙNG CHUNG ====================
 
-#define WIFI_SSID_COMMON      "Chon Rieng Studycafe"
-#define WIFI_PASSWORD_COMMON  "dinhenoikhecuoiduyen"
-#define SERVER_URL_COMMON     "http://192.168.88.49:8000/device-readings/ingest"
+#define WIFI_SSID_COMMON      "Trung Tam Doi Moi Sang Tao"
+#define WIFI_PASSWORD_COMMON  "12345678"
+#define SERVER_URL_COMMON     "http://192.168.1.24:8000/device-readings/ingest"
 #define WIFI_CHANNEL_COMMON   1
 
 #define HAS_OLED              0   // Đặt thành 1 nếu có màn hình OLED vật lý, 0 nếu không sử dụng

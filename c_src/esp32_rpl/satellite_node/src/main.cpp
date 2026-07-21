@@ -64,7 +64,7 @@ void updateParentPeer(const uint8_t *newParentMac) {
 
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, parentMac, 6);
-    peerInfo.channel = WIFI_CHANNEL_COMMON;
+    peerInfo.channel = 0; // Tự động sử dụng kênh hoạt động hiện tại
     peerInfo.encrypt = false;
     peerInfo.ifidx = WIFI_IF_STA;
 
@@ -244,7 +244,7 @@ void setup() {
 
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, broadcastMac, 6);
-    peerInfo.channel = WIFI_CHANNEL_COMMON;
+    peerInfo.channel = 0; // Tự động sử dụng kênh hoạt động hiện tại
     peerInfo.encrypt = false;
     peerInfo.ifidx = WIFI_IF_STA;
     

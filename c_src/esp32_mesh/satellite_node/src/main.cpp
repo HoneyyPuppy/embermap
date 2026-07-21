@@ -60,7 +60,7 @@ void updateNextHopPeer(const uint8_t *newMac) {
 
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, nextHopMac, 6);
-    peerInfo.channel = WIFI_CHANNEL_COMMON;
+    peerInfo.channel = 0; // 0 nghĩa là sử dụng kênh hoạt động hiện tại của chip
     peerInfo.encrypt = false;
     peerInfo.ifidx = WIFI_IF_STA;
 
@@ -225,7 +225,7 @@ void setup() {
 
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, broadcastMac, 6);
-    peerInfo.channel = WIFI_CHANNEL_COMMON;
+    peerInfo.channel = 0; // Tự động đồng bộ với kênh hoạt động hiện tại
     peerInfo.encrypt = false;
     peerInfo.ifidx = WIFI_IF_STA;
     
