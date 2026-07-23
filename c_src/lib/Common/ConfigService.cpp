@@ -286,6 +286,12 @@ void ConfigService::handlePortal() {
 }
 
 void ConfigService::checkResetButton(uint8_t pin) {
+    static bool initialized = false;
+    if (!initialized) {
+        pinMode(pin, INPUT_PULLUP);
+        initialized = true;
+    }
+
     static unsigned long pressStart = 0;
     static bool pressed = false;
 
@@ -305,4 +311,18 @@ void ConfigService::checkResetButton(uint8_t pin) {
     } else {
         pressed = false;
     }
+}
+
+static uint8_t g_resetPin = 0;
+static void resetButtonTaskFunc(void* pvParameters) {
+    for (;;) {
+        ConfigService::checkResetButton(g_resetPin);
+        vTaskDelay(pdMS_TO_TICKS(50)); // Quét phím mỗi 50ms
+    }
+}
+
+void ConfigService::startResetButtonTask(uint8_t pin) {
+    g_resetPin = pin;
+    xTaskCreate(resetButtonTaskFunc, "ResetBtnTask", 2048, NULL, 1, NULL);
+    Serial.printf("[Config] Đã khởi tạo task chạy ngầm giám sát nút BOOT trên GPIO %d\n", pin);
 }

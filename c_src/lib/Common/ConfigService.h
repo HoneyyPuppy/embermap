@@ -12,6 +12,7 @@ public:
     static void handlePortal();
     static bool isPortalActive() { return m_portalActive; }
     static void checkResetButton(uint8_t pin);
+    static void startResetButtonTask(uint8_t pin);
 
 private:
     static bool m_portalActive;

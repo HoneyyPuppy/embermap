@@ -10,11 +10,12 @@
 #define PACKET_RPL_DAO           4   // RPL DAO advertisement
 #define PACKET_POTENTIAL_ADVERT  5   // APF potential advertisement
 #define PACKET_ROUTE_REQUEST     6   // Active routing request for channel probing
+#define PACKET_EVAC_ADVERT       7   // Evacuation path potential advertisement for humans
 
 #define MAX_ROUTE_PATH           8   // Hạn mức số Hop tối đa để tránh lặp vòng định tuyến
 
 typedef struct __attribute__((packed)) {
-    uint8_t packetType;       // Kiểu gói tin (1 đến 5)
+    uint8_t packetType;       // Kiểu gói tin (1 đến 7)
     uint8_t sourceMac[6];     // MAC gốc phát tin
     uint8_t destMac[6];       // MAC đích cuối
     uint8_t forwardMac[6];    // MAC Next Hop
@@ -29,6 +30,9 @@ typedef struct __attribute__((packed)) {
     uint8_t version;          // RPL version
     float potential;          // APF potential
     uint8_t hopCount;         // APF hop count
+    
+    // Chỉ đường thoát hiểm độc lập
+    float evacPotential;      // Evacuation routing potential for humans (APF based, independent)
 
     // Cơ chế chống lặp vòng định tuyến (Loop Prevention)
     uint8_t routePath[MAX_ROUTE_PATH]; // Mảng chứa ID các nút đã đi qua
