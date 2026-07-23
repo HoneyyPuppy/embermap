@@ -130,6 +130,9 @@ void MeshNetwork::onSentStatic(const esp_now_send_info_t *tx_info, esp_now_send_
 void MeshNetwork::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPacket& packet) {
     const uint8_t* senderMac = recv_info->src_addr;
 
+    // Cập nhật địa chỉ MAC của láng giềng vật lý phục vụ chỉ đường thoát hiểm
+    m_routingTable.updatePhysicalNeighborMac(packet.id, senderMac);
+
     if (packet.packetType == PACKET_ROUTE_UPDATE) {
         if (!m_routingTable.isAllowedNeighbor(packet.id)) {
             return;
@@ -182,6 +185,11 @@ void MeshNetwork::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
             rebroadcastRouteUpdate();
         }
     }
+    else if (packet.packetType == PACKET_EVAC_ADVERT) {
+        m_routingTable.updateEvacPotential(packet.id, packet.evacPotential);
+        Serial.printf("[Evac Recv] Nhận thế năng thoát hiểm từ Node %d: U = %.1f (sender=%02X:%02X)\n", 
+                      packet.id, packet.evacPotential, senderMac[0], senderMac[1]);
+    }
 }
 
 void MeshNetwork::handleSent(const esp_now_send_info_t *tx_info, esp_now_send_status_t status) {
@@ -203,6 +211,35 @@ void MeshNetwork::handleSent(const esp_now_send_info_t *tx_info, esp_now_send_st
             }
             
             updateAndSendToParent(m_pendingSend.currentParentIdx);
+        }
+    }
+}
+
+void MeshNetwork::broadcastEvacPotential(float potential) {
+    MeshPacket packet = {};
+    packet.packetType = PACKET_EVAC_ADVERT;
+    memcpy(packet.sourceMac, m_myMac, 6);
+    memcpy(packet.destMac, m_broadcastMac, 6);
+    memset(packet.forwardMac, 0, 6);
+    packet.id = m_satelliteId;
+    packet.evacPotential = potential;
+
+    // 1. Gửi broadcast thông thường (tầm phủ ngắn, không đảm bảo)
+    esp_now_send(m_broadcastMac, (uint8_t *)&packet, sizeof(packet));
+
+    // 2. Gửi unicast cho từng láng giềng vật lý đã biết MAC (đáng tin cậy hơn)
+    const PhysicalNeighbor* neighbors = m_routingTable.getPhysicalNeighbors();
+    uint8_t count = m_routingTable.getPhysCount();
+    for (uint8_t i = 0; i < count; i++) {
+        if (neighbors[i].active && neighbors[i].id != 0) {
+            // Kiểm tra MAC khác 00:00:00:00:00:00
+            bool hasValidMac = false;
+            for (int j = 0; j < 6; j++) {
+                if (neighbors[i].mac[j] != 0) { hasValidMac = true; break; }
+            }
+            if (hasValidMac) {
+                esp_now_send(neighbors[i].mac, (uint8_t *)&packet, sizeof(packet));
+            }
         }
     }
 }

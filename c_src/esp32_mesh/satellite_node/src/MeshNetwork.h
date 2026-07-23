@@ -15,6 +15,7 @@ public:
     void sendSensorData(float temp, int gas, bool emergency);
     void rebroadcastRouteUpdate();
     void sendRouteRequest(uint8_t channel);
+    void broadcastEvacPotential(float potential);
     
     static void onRecvStatic(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDataRaw, int len);
     static void onSentStatic(const esp_now_send_info_t *tx_info, esp_now_send_status_t status);
