@@ -5,16 +5,14 @@
 #include "RoutingTable.h"
 #include "MeshNetwork.h"
 
-// ID của Satellite Node này
-#define SATELLITE_ID 3
+// ID của Satellite Node này (Cần thay đổi từ 1 đến 5 tương ứng khi nạp code cho 5 board vệ tinh)
+#define SATELLITE_ID 1
 
-// Cấu hình láng giềng tĩnh (0xFF = Tự động bắt mọi láng giềng dựa trên RSSI)
-const uint8_t ALLOWED_NEIGHBORS[] = {1, 2};
 
 RoutingTable routingTable(SATELLITE_ID);
 MeshNetwork meshNetwork(SATELLITE_ID, routingTable);
 
-// Mutex bảo vệ tài nguyên dùng chung
+// Mutex bảo vệ tài nguyên dùng chung giữa 2 core
 SemaphoreHandle_t dataMutex = NULL;
 
 // Các biến trạng thái dùng chung (được bảo vệ bởi dataMutex)
@@ -25,6 +23,12 @@ bool sharedHasRoute = false;
 float sharedCost = 999.0;
 uint8_t sharedNextHop[6] = {0, 0, 0, 0, 0, 0};
 
+// Các biến chỉ đường thoát hiểm dùng chung
+bool sharedHasEvacRoute = false;
+float sharedEvacPotential = 9999.0;
+uint8_t sharedEvacNextHopId = 0xFF;
+uint8_t sharedEvacNextHopMac[6] = {0, 0, 0, 0, 0, 0};
+
 // Biến cục bộ phục vụ cơ chế Auto-Channel Scanning (chỉ chạy trong NetworkTask)
 bool isScanning = false;
 uint8_t scanChannel = 1;
@@ -34,16 +38,15 @@ const unsigned long ROUTE_TIMEOUT = 12000;
 
 // Hằng số chu kỳ của các Task
 const TickType_t SENSOR_PERIOD = pdMS_TO_TICKS(3000);
-const TickType_t DISPLAY_PERIOD = pdMS_TO_TICKS(1000);
 
 // Khai báo Task Handles
 TaskHandle_t networkTaskHandle = NULL;
 TaskHandle_t sensorTaskHandle = NULL;
-TaskHandle_t displayTaskHandle = NULL;
 
-// Task 1: Quản lý Định tuyến và Quét kênh (Độ ưu tiên cao - Core 1)
+// ==================== TASK 1: NETWORK TASK (Core 1) ====================
 void networkTask(void *pvParameters) {
     unsigned long lastRouteBroadcastTime = 0;
+    unsigned long lastEvacBroadcastTime = 0;
     
     for (;;) {
         unsigned long currentMillis = millis();
@@ -56,17 +59,42 @@ void networkTask(void *pvParameters) {
         float cost = routingTable.getCost();
         const uint8_t* nextHop = routingTable.getNextHopMac();
 
+        // 2. Tính toán định tuyến thoát hiểm con người (APF độc lập)
+        bool localEmergency = false;
+        if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
+            localEmergency = isEmergency;
+            xSemaphoreGive(dataMutex);
+        }
+
+        float localRepulsive = 0.0;
+        if (localEmergency) {
+            localRepulsive = 9999.0; // Bị cháy -> Thế năng vô hạn
+        }
+
+        float localEvacPotential = 9999.0;
+        uint8_t evacNextHopId = 0xFF;
+        uint8_t evacNextHopMac[6] = {0};
+        
+        bool safeEscape = routingTable.calculateEvacuation(localRepulsive, localEvacPotential, evacNextHopId, evacNextHopMac);
+
+        // Đồng bộ dữ liệu sang Core 0 chạy an toàn
         if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
             sharedHasRoute = hasRoute;
             sharedCost = cost;
             memcpy(sharedNextHop, nextHop, 6);
+
+            sharedHasEvacRoute = safeEscape;
+            sharedEvacPotential = localEvacPotential;
+            sharedEvacNextHopId = evacNextHopId;
+            memcpy(sharedEvacNextHopMac, evacNextHopMac, 6);
             xSemaphoreGive(dataMutex);
         }
 
-        // 2. Xử lý quét kênh tự động khi mất định tuyến
+        // 3. Xử lý quét kênh tự động khi mất định tuyến vô tuyến
         if (!hasRoute) {
             if (!isScanning) {
                 isScanning = true;
+                routingTable.clearCandidates(); // Xóa sạch candidate cũ ngay khi quét kênh để tránh phát quảng bá ảo trên kênh khác
                 scanChannel = 1;
                 lastChannelSwitchTime = currentMillis - CHANNEL_LISTEN_TIME;
                 meshNetwork.stopScanningAck();
@@ -86,17 +114,25 @@ void networkTask(void *pvParameters) {
             }
         }
 
-        // 3. Định kỳ phát quảng bá tuyến định tuyến
+        // 4. Định kỳ phát quảng bá tuyến mạng (Gradient)
         if (hasRoute && (currentMillis - lastRouteBroadcastTime >= 5000)) {
             lastRouteBroadcastTime = currentMillis;
             meshNetwork.rebroadcastRouteUpdate();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100)); // Nghỉ 100ms nhường CPU
+        // 5. Định kỳ quảng bá thế năng thoát hiểm (APF thoát hiểm)
+        if (currentMillis - lastEvacBroadcastTime >= 3000) {
+            lastEvacBroadcastTime = currentMillis;
+            meshNetwork.broadcastEvacPotential(routingTable.getMyEvacPotential());
+            Serial.printf("[Evac Advert] Phát thế năng thoát hiểm: U = %.1f (NextHopId = %d)\n", 
+                          routingTable.getMyEvacPotential(), evacNextHopId);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(100)); // Nghỉ 100ms
     }
 }
 
-// Task 2: Đọc cảm biến định kỳ (Độ ưu tiên trung bình - Core 1)
+// ==================== TASK 2: SENSOR & ALARM TASK (Core 0) ====================
 void sensorTask(void *pvParameters) {
     TickType_t lastWakeTime = xTaskGetTickCount();
 
@@ -104,66 +140,76 @@ void sensorTask(void *pvParameters) {
         float temp = 0.0;
         int gas = 0;
         bool emergency = false;
-        bool hasRoute = false;
 
         // Đọc cảm biến thực tế (DS18B20 & MQ2)
         SensorService::read(temp, gas, emergency);
 
-        // Đọc trạng thái định tuyến an toàn để điều khiển alarm
         if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-            hasRoute = sharedHasRoute;
             currentTemp = temp;
             currentGas = gas;
             isEmergency = emergency;
             xSemaphoreGive(dataMutex);
         }
 
-        // Cập nhật trạng thái đèn/còi cảnh báo
-        SensorService::updateAlarm(emergency, hasRoute);
+        // Quyết định trạng thái LED NeoPixel dựa vào định tuyến thoát hiểm
+        float repulsivePot = 0.0;
+        
+        // Nếu cách Master xa hơn khoảng cách chuẩn (do phải đi vòng tránh lửa ở hành lang khác) -> Sáng đèn Vàng
+#if SATELLITE_ID == 1
+        if (sharedEvacPotential > 10.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
+#elif SATELLITE_ID == 2
+        if (sharedEvacPotential > 18.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
+#elif SATELLITE_ID == 3
+        if (sharedEvacPotential > 22.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
+#elif SATELLITE_ID == 4
+        if (sharedEvacPotential > 12.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
+#elif SATELLITE_ID == 5
+        if (sharedEvacPotential > 37.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
+#endif
 
-        // Ra lệnh gửi dữ liệu cảm biến
+        if (emergency || sharedEvacPotential >= 9999.0) {
+            // Đỏ nhấp nháy: Bản thân bị cháy hoặc bị kẹt hoàn toàn không lối thoát
+            SensorService::updateAlarm(true, sharedHasEvacRoute, repulsivePot);
+            if (sharedEvacPotential >= 9999.0) {
+                Serial.println("[Evac Alert] BỊ KẸT HOÀN TOÀN! Lối thoát hiểm đã bị lửa chặn đứng.");
+            }
+        } else {
+            // Xanh (An toàn tuyệt đối) hoặc Vàng (Cảnh báo đi vòng tránh lửa ở xa)
+            SensorService::updateAlarm(false, sharedHasEvacRoute, repulsivePot);
+        }
+
+        // Gửi telemetry về Master qua lớp mạng Gradient
         meshNetwork.sendSensorData(temp, gas, emergency);
 
-        // Chờ chính xác 3 giây (chu kỳ cố định)
         vTaskDelayUntil(&lastWakeTime, SENSOR_PERIOD);
     }
 }
 
-// Task 3: Hiển thị OLED (Độ ưu tiên thấp - Core 0)
-void displayTask(void *pvParameters) {
-    TickType_t lastWakeTime = xTaskGetTickCount();
-
-    for (;;) {
-        float temp = 0.0;
-        int gas = 0;
-        bool hasRoute = false;
-        float cost = 999.0;
-        uint8_t nextHop[6] = {0};
-
-        // Đọc dữ liệu an toàn để hiển thị OLED
-        if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-            temp = currentTemp;
-            gas = currentGas;
-            hasRoute = sharedHasRoute;
-            cost = sharedCost;
-            memcpy(nextHop, sharedNextHop, 6);
-            xSemaphoreGive(dataMutex);
-        }
-
-        // Vẽ giao diện màn hình OLED
-        SensorService::displaySatellite("Mesh", SATELLITE_ID, temp, gas, hasRoute, cost, nextHop);
-
-        // Chờ chính xác 1 giây
-        vTaskDelayUntil(&lastWakeTime, DISPLAY_PERIOD);
-    }
-}
-
+// ==================== SETUP ====================
 void setup() {
     Serial.begin(115200);
     SensorService::init("SATELLITE");
 
-    // Thiết lập danh sách bộ lọc láng giềng tĩnh
-    routingTable.setAllowedNeighbors(ALLOWED_NEIGHBORS, sizeof(ALLOWED_NEIGHBORS) / sizeof(ALLOWED_NEIGHBORS[0]));
+    // Tìm và áp dụng cấu hình từ bảng Topology trung tâm trong common_config.h
+    bool foundConfig = false;
+    for (size_t i = 0; i < sizeof(TOPOLOGY_MAP) / sizeof(TOPOLOGY_MAP[0]); i++) {
+        if (TOPOLOGY_MAP[i].nodeId == SATELLITE_ID) {
+            routingTable.setAllowedNeighbors(TOPOLOGY_MAP[i].allowedRadio, TOPOLOGY_MAP[i].allowedRadioCount);
+            routingTable.setPhysicalNeighbors(TOPOLOGY_MAP[i].physIds, TOPOLOGY_MAP[i].physDists, TOPOLOGY_MAP[i].physCount);
+            foundConfig = true;
+            Serial.printf("[Setup] Đã nhận cấu hình topology cho Node %d từ common_config.h\n", SATELLITE_ID);
+            break;
+        }
+    }
+    
+    if (!foundConfig) {
+        Serial.printf("[Setup Warning] Không tìm thấy cấu hình cho Node %d trong TOPOLOGY_MAP. Dùng cấu hình mặc định (kết nối trực tiếp Master).\n", SATELLITE_ID);
+        uint8_t defaultRadio[] = {0};
+        uint8_t defaultPhys[] = {0};
+        float defaultDist[] = {10.0};
+        routingTable.setAllowedNeighbors(defaultRadio, 1);
+        routingTable.setPhysicalNeighbors(defaultPhys, defaultDist, 1);
+    }
 
     if (meshNetwork.init()) {
         Serial.println("[Mesh Network] Khởi động thành công.");
@@ -173,21 +219,22 @@ void setup() {
 
     WiFiService::forceChannel(WIFI_CHANNEL_COMMON);
 
-    // Khởi tạo Mutex
+    // Khởi tạo Mutex bảo vệ dữ liệu giữa 2 Core
     dataMutex = xSemaphoreCreateMutex();
 
     if (dataMutex != NULL) {
-        // Tạo các tác vụ chạy song song
+        // Tạo NetworkTask chạy trên Core 1 (RF core)
         xTaskCreatePinnedToCore(networkTask, "NetworkTask", 4096, NULL, 3, &networkTaskHandle, 1);
-        xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 1);
-        xTaskCreatePinnedToCore(displayTask, "DisplayTask", 4096, NULL, 1, &displayTaskHandle, 0);
-        Serial.println("[FreeRTOS] Đã khởi tạo các Tasks đa nhiệm thành công.");
+        
+        // Tạo SensorTask chạy trên Core 0 (System core)
+        xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
+        
+        Serial.printf("[FreeRTOS] Đã phân chia đa nhiệm cho Node %d chạy song song Core 1 & Core 0 thành công (Không OLED).\n", SATELLITE_ID);
     } else {
         Serial.println("[FreeRTOS FAIL] Lỗi tạo Mutex!");
     }
 }
 
 void loop() {
-    // Vòng loop trống vì FreeRTOS đã quản lý toàn bộ tác vụ thông qua các Task
-    vTaskDelete(NULL); // Xóa task loop() mặc định để giải phóng tài nguyên CPU
+    vTaskDelete(NULL);
 }
