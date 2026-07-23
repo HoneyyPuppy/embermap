@@ -24,8 +24,8 @@ void setup() {
     Serial.begin(115200);
     SensorService::init("MASTER");
 
-    // Khởi tạo nút BOOT (GPIO 0)
-    pinMode(0, INPUT_PULLUP);
+    // Khởi tạo và khởi động tác vụ chạy ngầm giám sát nút BOOT (GPIO 0) bất kể nghẽn mạng
+    ConfigService::startResetButtonTask(0);
 
     WiFi.mode(WIFI_STA);
 
@@ -40,15 +40,13 @@ void setup() {
 
 // ==================== LOOP ====================
 void loop() {
-    // Kiểm tra nhấn nút BOOT để reset WiFi
-    ConfigService::checkResetButton(0);
+    // Không cần gọi checkResetButton ở đây nữa vì đã có task FreeRTOS chạy ngầm xử lý độc lập
 
     unsigned long currentMillis = millis();
 
     bool isEmergency = false;
     SensorService::read(master_temp, master_gas, isEmergency);
     SensorService::updateAlarm(isEmergency, true);
-    SensorService::displayMaster("APF", master_temp, master_gas, WiFi.status() == WL_CONNECTED, WiFi.localIP().toString());
 
     if (currentMillis - lastPotentialBroadcastTime >= POTENTIAL_BROADCAST_INTERVAL) {
         meshGateway.broadcastPotential();

@@ -34,12 +34,10 @@ const unsigned long PARENT_TIMEOUT = 12000;
 
 // Hằng số chu kỳ của các Task
 const TickType_t SENSOR_PERIOD = pdMS_TO_TICKS(3000);
-const TickType_t DISPLAY_PERIOD = pdMS_TO_TICKS(1000);
 
 // Khai báo Task Handles
 TaskHandle_t networkTaskHandle = NULL;
 TaskHandle_t sensorTaskHandle = NULL;
-TaskHandle_t displayTaskHandle = NULL;
 
 // Task 1: Quản lý Định tuyến và Quét kênh (Độ ưu tiên cao - Core 1)
 void networkTask(void *pvParameters) {
@@ -103,7 +101,7 @@ void networkTask(void *pvParameters) {
     }
 }
 
-// Task 2: Đọc cảm biến định kỳ (Độ ưu tiên trung bình - Core 1)
+// Task 2: Đọc cảm biến định kỳ (Độ ưu tiên trung bình - Core 0)
 void sensorTask(void *pvParameters) {
     TickType_t lastWakeTime = xTaskGetTickCount();
 
@@ -136,35 +134,6 @@ void sensorTask(void *pvParameters) {
     }
 }
 
-// Task 3: Hiển thị OLED (Độ ưu tiên thấp - Core 0)
-void displayTask(void *pvParameters) {
-    TickType_t lastWakeTime = xTaskGetTickCount();
-
-    for (;;) {
-        float temp = 0.0;
-        int gas = 0;
-        bool hasParent = false;
-        uint16_t rank = 0xFFFF;
-        uint8_t parentMac[6] = {0};
-
-        // Đọc dữ liệu an toàn để hiển thị OLED
-        if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-            temp = currentTemp;
-            gas = currentGas;
-            hasParent = sharedHasParent;
-            rank = sharedRank;
-            memcpy(parentMac, sharedParentMac, 6);
-            xSemaphoreGive(dataMutex);
-        }
-
-        // Vẽ giao diện màn hình OLED
-        SensorService::displaySatellite("RPL", SATELLITE_ID, temp, gas, hasParent, rank, parentMac);
-
-        // Chờ chính xác 1 giây
-        vTaskDelayUntil(&lastWakeTime, DISPLAY_PERIOD);
-    }
-}
-
 void setup() {
     Serial.begin(115200);
     SensorService::init("SATELLITE");
@@ -184,11 +153,11 @@ void setup() {
     dataMutex = xSemaphoreCreateMutex();
 
     if (dataMutex != NULL) {
-        // Tạo các tác vụ chạy song song
+        // Tạo NetworkTask chạy trên Core 1 (RF core)
         xTaskCreatePinnedToCore(networkTask, "NetworkTask", 4096, NULL, 3, &networkTaskHandle, 1);
-        xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 1);
-        xTaskCreatePinnedToCore(displayTask, "DisplayTask", 4096, NULL, 1, &displayTaskHandle, 0);
-        Serial.println("[FreeRTOS] Đã khởi tạo các Tasks đa nhiệm thành công.");
+        // Tạo SensorTask chạy trên Core 0 (System core) để việc đọc cảm biến không nghẽn vô tuyến
+        xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
+        Serial.println("[FreeRTOS] Đã phân nhiệm RPL satellite node chạy trên Core 1 và Core 0 thành công (Không OLED).");
     } else {
         Serial.println("[FreeRTOS FAIL] Lỗi tạo Mutex!");
     }
