@@ -5,6 +5,7 @@
 #include <mesh_packet.h>
 
 #define MAX_PARENT_CANDIDATES 3
+#define MAX_PHYSICAL_NEIGHBORS 3
 
 typedef struct {
     uint8_t mac[6];
@@ -13,6 +14,15 @@ typedef struct {
     uint8_t routePath[MAX_ROUTE_PATH];
     uint8_t routePathLen;
 } ParentCandidate;
+
+typedef struct {
+    uint8_t id;             // ID của láng giềng vật lý (0 = Master/Lối ra, 1-3 = Vệ tinh)
+    uint8_t mac[6];         // Địa chỉ MAC học được của láng giềng
+    float distance;         // Khoảng cách đi bộ (mét)
+    float evacPotential;    // Thế năng thoát hiểm nhận từ láng giềng
+    unsigned long lastSeen; // Thời điểm nhận cập nhật cuối
+    bool active;            // Trạng thái đã học được MAC hay chưa
+} PhysicalNeighbor;
 
 class RoutingTable {
 public:
@@ -30,8 +40,18 @@ public:
     uint8_t getParentRoutePathLen() const { return m_parentRoutePathLen; }
 
     void removeCandidateAtIndex(uint8_t idx);
+    void clearCandidates();
     void setAllowedNeighbors(const uint8_t* allowedList, uint8_t count);
     bool isAllowedNeighbor(uint8_t neighborId) const;
+
+    // Các hàm phục vụ định tuyến thoát hiểm con người (Evacuation Routing)
+    void setPhysicalNeighbors(const uint8_t* ids, const float* distances, uint8_t count);
+    void updatePhysicalNeighborMac(uint8_t id, const uint8_t* mac);
+    void updateEvacPotential(uint8_t neighborId, float potential);
+    bool calculateEvacuation(float localRepulsive, float &outTotalPotential, uint8_t &outNextHopId, uint8_t *outNextHopMac);
+    float getMyEvacPotential() const { return m_myEvacPotential; }
+    const PhysicalNeighbor* getPhysicalNeighbors() const { return m_physNeighbors; }
+    uint8_t getPhysCount() const { return m_physCount; }
 
 private:
     uint8_t m_satelliteId;
@@ -47,6 +67,13 @@ private:
 
     uint8_t m_allowedNeighbors[10];
     uint8_t m_allowedCount;
+
+    // Dữ liệu chỉ đường thoát hiểm
+    PhysicalNeighbor m_physNeighbors[MAX_PHYSICAL_NEIGHBORS];
+    uint8_t m_physCount;
+    float m_myEvacPotential;
+    uint8_t m_evacNextHopId;
+    uint8_t m_evacNextHopMac[6];
 
     void sortCandidates();
     void syncPrimary();
