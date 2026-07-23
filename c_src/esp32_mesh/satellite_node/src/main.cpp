@@ -6,10 +6,10 @@
 #include "MeshNetwork.h"
 
 // ID của Satellite Node này
-#define SATELLITE_ID 2
+#define SATELLITE_ID 3
 
 // Cấu hình láng giềng tĩnh (0xFF = Tự động bắt mọi láng giềng dựa trên RSSI)
-const uint8_t ALLOWED_NEIGHBORS[] = {0xFF};
+const uint8_t ALLOWED_NEIGHBORS[] = {1, 2};
 
 RoutingTable routingTable(SATELLITE_ID);
 MeshNetwork meshNetwork(SATELLITE_ID, routingTable);

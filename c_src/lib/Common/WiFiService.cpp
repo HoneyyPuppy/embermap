@@ -1,5 +1,6 @@
 #include "WiFiService.h"
 #include <esp_wifi.h>
+#include "ConfigService.h"
 
 void WiFiService::connect(const char* ssid, const char* password) {
     Serial.printf("Connecting to WiFi: %s\n", ssid);
@@ -17,6 +18,42 @@ void WiFiService::connect(const char* ssid, const char* password) {
     } else {
         Serial.println("\n[WIFI FAIL] Could not connect to WiFi. Running offline mode...");
     }
+}
+
+bool WiFiService::connectWithPortal(const char* portalSsid, String &loadedUrl) {
+    ConfigService::init();
+    String ssid, pass, url;
+    
+    if (ConfigService::loadConfig(ssid, pass, url)) {
+        Serial.printf("Connecting to Saved WiFi: %s\n", ssid.c_str());
+        WiFi.begin(ssid.c_str(), pass.c_str());
+        unsigned long startAttemptTime = millis();
+        
+        while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 15000) { // 15s timeout
+            delay(500);
+            Serial.print(".");
+        }
+        
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("\n[WIFI OK] IP: " + WiFi.localIP().toString());
+            Serial.printf("==> WiFi Channel: %d\n", WiFi.channel());
+            loadedUrl = url;
+            return true;
+        }
+        Serial.println("\n[WIFI FAIL] Could not connect to saved WiFi router.");
+    } else {
+        Serial.println("[Config] No saved configuration found.");
+    }
+    
+    // Khởi động Portal nếu kết nối lỗi hoặc chưa có cấu hình
+    ConfigService::startConfigPortal(portalSsid);
+    
+    // Lặp liên tục xử lý yêu cầu của Portal cho tới khi tự reset
+    while (ConfigService::isPortalActive()) {
+        ConfigService::handlePortal();
+        delay(10);
+    }
+    return false;
 }
 
 void WiFiService::forceChannel(uint8_t channel) {
