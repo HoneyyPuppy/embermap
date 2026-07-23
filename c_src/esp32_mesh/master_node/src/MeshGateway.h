@@ -11,6 +11,7 @@ public:
     MeshGateway();
     bool init();
     void broadcastRouteUpdate();
+    void broadcastEvacPotential(float potential);
     
     float getSatTemp(uint8_t nodeId) const;
     int getSatGas(uint8_t nodeId) const;
@@ -22,8 +23,8 @@ private:
     uint8_t m_myMac[6];
     uint8_t m_broadcastMac[6];
     
-    float m_satTemp[4];
-    int m_satGas[4];
+    float m_satTemp[6];
+    int m_satGas[6];
     
     static MeshGateway* s_instance;
 };

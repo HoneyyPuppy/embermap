@@ -12,8 +12,10 @@ float master_temp = 26.0;
 int master_gas = 0;
 
 unsigned long lastRouteBroadcastTime = 0;
+unsigned long lastEvacBroadcastTime = 0;
 unsigned long lastSendTime = 0;
 const unsigned long ROUTE_BROADCAST_INTERVAL = 5000;
+const unsigned long EVAC_BROADCAST_INTERVAL = 3000;
 const unsigned long WEB_POST_INTERVAL = 3000;
 
 String backendUrl = "";
@@ -24,8 +26,8 @@ void setup() {
     Serial.begin(115200);
     SensorService::init("MASTER");
 
-    // Khởi tạo nút BOOT (GPIO 0)
-    pinMode(0, INPUT_PULLUP);
+    // Khởi tạo và khởi động tác vụ chạy ngầm giám sát nút BOOT (GPIO 0) bất kể nghẽn mạng
+    ConfigService::startResetButtonTask(0);
 
     WiFi.mode(WIFI_STA);
 
@@ -40,19 +42,23 @@ void setup() {
 
 // ==================== LOOP ====================
 void loop() {
-    // Kiểm tra nhấn nút BOOT để reset WiFi
-    ConfigService::checkResetButton(0);
+    // Không cần gọi checkResetButton ở đây nữa vì đã có task FreeRTOS chạy ngầm xử lý độc lập
 
     unsigned long currentMillis = millis();
 
     bool isEmergency = false;
     SensorService::read(master_temp, master_gas, isEmergency);
     SensorService::updateAlarm(isEmergency, true);
-    SensorService::displayMaster("Gradient", master_temp, master_gas, WiFi.status() == WL_CONNECTED, WiFi.localIP().toString());
 
     if (currentMillis - lastRouteBroadcastTime >= ROUTE_BROADCAST_INTERVAL) {
         meshGateway.broadcastRouteUpdate();
         lastRouteBroadcastTime = currentMillis;
+    }
+
+    if (currentMillis - lastEvacBroadcastTime >= EVAC_BROADCAST_INTERVAL) {
+        // Master Node là cửa thoát hiểm chính nên U_evac luôn = 0.0
+        meshGateway.broadcastEvacPotential(0.0);
+        lastEvacBroadcastTime = currentMillis;
     }
 
     if (currentMillis - lastSendTime >= WEB_POST_INTERVAL) {
@@ -76,6 +82,12 @@ void loop() {
 
             WebService::postReading(backendUrl.c_str(), "temp-sat-3", "temp", meshGateway.getSatTemp(3));
             WebService::postReading(backendUrl.c_str(), "mq2-sat-3", "mq2", (float)meshGateway.getSatGas(3));
+
+            WebService::postReading(backendUrl.c_str(), "temp-sat-4", "temp", meshGateway.getSatTemp(4));
+            WebService::postReading(backendUrl.c_str(), "mq2-sat-4", "mq2", (float)meshGateway.getSatGas(4));
+
+            WebService::postReading(backendUrl.c_str(), "temp-sat-5", "temp", meshGateway.getSatTemp(5));
+            WebService::postReading(backendUrl.c_str(), "mq2-sat-5", "mq2", (float)meshGateway.getSatGas(5));
         } else {
             Serial.println("\n[Warning] WiFi offline, cannot upload to Web!");
         }

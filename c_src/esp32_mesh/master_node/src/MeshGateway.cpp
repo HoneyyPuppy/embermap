@@ -10,7 +10,7 @@ MeshGateway::MeshGateway() {
     memset(m_myMac, 0, 6);
     
     // Khởi tạo giá trị mặc định cho dữ liệu cảm biến
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 6; i++) {
         m_satTemp[i] = 26.0;
         m_satGas[i] = 0;
     }
@@ -68,12 +68,12 @@ void MeshGateway::broadcastRouteUpdate() {
 }
 
 float MeshGateway::getSatTemp(uint8_t nodeId) const {
-    if (nodeId < 4) return m_satTemp[nodeId];
+    if (nodeId < 6) return m_satTemp[nodeId];
     return 26.0;
 }
 
 int MeshGateway::getSatGas(uint8_t nodeId) const {
-    if (nodeId < 4) return m_satGas[nodeId];
+    if (nodeId < 6) return m_satGas[nodeId];
     return 0;
 }
 
@@ -91,7 +91,7 @@ void MeshGateway::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
             Serial.printf("[Mesh] Received sensor from Node %d. Temp: %.1f C, Gas: %d\n", 
                           packet.id, packet.temp, packet.gasRaw);
 
-            if (packet.id < 4) {
+            if (packet.id < 6) {
                 m_satTemp[packet.id] = packet.temp;
                 m_satGas[packet.id] = packet.gasRaw;
             }
@@ -101,4 +101,16 @@ void MeshGateway::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
         Serial.println("[Mesh] Nhận yêu cầu quét kênh (Route Request) -> Quảng bá phản hồi.");
         broadcastRouteUpdate();
     }
+}
+
+void MeshGateway::broadcastEvacPotential(float potential) {
+    MeshPacket packet = {};
+    packet.packetType = PACKET_EVAC_ADVERT;
+    memcpy(packet.sourceMac, m_myMac, 6);
+    memcpy(packet.destMac, m_broadcastMac, 6);
+    memset(packet.forwardMac, 0, 6);
+    packet.id = 0; // Master ID = 0
+    packet.evacPotential = potential;
+
+    esp_now_send(m_broadcastMac, (uint8_t *)&packet, sizeof(packet));
 }
