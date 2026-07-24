@@ -84,3 +84,43 @@ void SensorService::updateAlarm(bool emergency, bool hasRoute, float repulsivePo
     pixels.show();
 #endif
 }
+
+float SensorService::calculateRepulsivePotential(float temp, int gas) {
+    #define TEMP_SAFE_THRESHOLD   37.0
+    #define TEMP_DANGER_THRESHOLD 50.0
+    #define GAS_SAFE_THRESHOLD    150
+    #define GAS_DANGER_THRESHOLD  500
+    #define U_WARNING_MAX         500.0
+
+    float u_temp = 0.0;
+    float u_gas = 0.0;
+
+    // 1. Tính thế năng đẩy của Nhiệt độ (DS18B20)
+    if (temp <= TEMP_SAFE_THRESHOLD) {
+        u_temp = 0.0;
+    } else if (temp >= TEMP_DANGER_THRESHOLD) {
+        u_temp = 9999.0;
+    } else {
+        float ratio_temp = (temp - TEMP_SAFE_THRESHOLD) / (TEMP_DANGER_THRESHOLD - TEMP_SAFE_THRESHOLD);
+        u_temp = ratio_temp * U_WARNING_MAX;
+    }
+
+    // 2. Tính thế năng đẩy của Khói/Gas (MQ-2)
+    if (gas <= GAS_SAFE_THRESHOLD) {
+        u_gas = 0.0;
+    } else if (gas >= GAS_DANGER_THRESHOLD) {
+        u_gas = 9999.0;
+    } else {
+        float ratio_gas = (float)(gas - GAS_SAFE_THRESHOLD) / (GAS_DANGER_THRESHOLD - GAS_SAFE_THRESHOLD);
+        u_gas = ratio_gas * U_WARNING_MAX;
+    }
+
+    // 3. Sensor Fusion: Lấy giá trị lớn nhất (tệ nhất) để ra quyết định định tuyến
+    float u_final = u_temp > u_gas ? u_temp : u_gas;
+
+    if (u_final > 9999.0) {
+        u_final = 9999.0;
+    }
+
+    return u_final;
+}

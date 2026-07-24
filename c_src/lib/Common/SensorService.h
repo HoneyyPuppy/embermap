@@ -19,6 +19,7 @@ public:
     static void init(const char* nodeName);
     static void read(float &temp, int &gas, bool &emergency);
     static void updateAlarm(bool emergency, bool hasRoute, float repulsivePotential = 0.0);
+    static float calculateRepulsivePotential(float temp, int gas);
 };
 
 #endif // SENSOR_SERVICE_H

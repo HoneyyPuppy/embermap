@@ -60,16 +60,15 @@ void networkTask(void *pvParameters) {
         const uint8_t* nextHop = routingTable.getNextHopMac();
 
         // 2. Tính toán định tuyến thoát hiểm con người (APF độc lập)
-        bool localEmergency = false;
+        float tempVal = 27.2;
+        int gasVal = 120;
         if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
-            localEmergency = isEmergency;
+            tempVal = currentTemp;
+            gasVal = currentGas;
             xSemaphoreGive(dataMutex);
         }
 
-        float localRepulsive = 0.0;
-        if (localEmergency) {
-            localRepulsive = 9999.0; // Bị cháy -> Thế năng vô hạn
-        }
+        float localRepulsive = SensorService::calculateRepulsivePotential(tempVal, gasVal);
 
         float localEvacPotential = 9999.0;
         uint8_t evacNextHopId = 0xFF;
