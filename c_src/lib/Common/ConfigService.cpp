@@ -2,10 +2,13 @@
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Update.h>
 #include <DNSServer.h>
 #include <common_config.h>
 
 bool ConfigService::m_portalActive = false;
+bool ConfigService::m_satelliteOtaPending = false;
+uint8_t ConfigService::m_otaTargetSatId = 0xFF;
 const String ConfigService::CONFIG_FILE = "/config.txt";
 
 static WebServer server(80);
@@ -325,4 +328,361 @@ void ConfigService::startResetButtonTask(uint8_t pin) {
     g_resetPin = pin;
     xTaskCreate(resetButtonTaskFunc, "ResetBtnTask", 2048, NULL, 1, NULL);
     Serial.printf("[Config] Đã khởi tạo task chạy ngầm giám sát nút BOOT trên GPIO %d\n", pin);
+}
+
+static File otaFile;
+
+void ConfigService::startNormalWebServer(std::function<String()> statusJsonCallback) {
+    m_portalActive = false; // Tắt flag portal
+
+    // Giao diện Dashboard + OTA
+    server.on("/", HTTP_GET, []() {
+        String html = R"rawhtml(
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Embermap Smart Fire Mesh Gateway</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0b0f19 0%, #1e1b4b 100%);
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 30px;
+        }
+        h1 { margin: 0; color: #38bdf8; font-size: 26px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 45px;
+        }
+        .card {
+            background: rgba(30, 41, 59, 0.45);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 20px;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+        .card:hover { transform: translateY(-2px); border-color: rgba(56, 189, 248, 0.3); }
+        .card.fire {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.15);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .card-title { margin: 0; font-size: 18px; font-weight: 600; color: #cbd5e1; }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-safe { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .badge-fire { background: rgba(239, 68, 68, 0.2); color: #f87171; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+        .metric { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .metric-label { color: #94a3b8; }
+        .metric-value { font-weight: 600; color: #f1f5f9; }
+        .ota-section {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 30px;
+        }
+        h2 { color: #38bdf8; margin-top: 0; margin-bottom: 25px; font-size: 20px; }
+        .ota-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        @media (max-width: 768px) { .ota-grid { grid-template-columns: 1fr; } }
+        .ota-card {
+            background: rgba(30, 41, 59, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .upload-form { display: flex; flex-direction: column; gap: 15px; }
+        .file-input { display: none; }
+        .file-label {
+            border: 2px dashed rgba(56, 189, 248, 0.3);
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #94a3b8;
+        }
+        .file-label:hover { border-color: #38bdf8; background: rgba(56, 189, 248, 0.05); color: #f8fafc; }
+        .btn {
+            background: linear-gradient(95deg, #0ea5e9 0%, #2563eb 100%);
+            border: none;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+        .progress-bar { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; display: none; }
+        .progress-fill { height: 100%; width: 0%; background: #38bdf8; transition: width 0.1s; }
+        .progress-text { font-size: 12px; color: #94a3b8; text-align: right; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Embermap Smart Fire Mesh Gateway</h1>
+            <span class="status-badge">GATEWAY ONLINE</span>
+        </header>
+
+        <h2>Giám Sát Mạng Lưới Cảm Biến</h2>
+        <div class="grid" id="node-grid">
+            <!-- Dữ liệu được nạp động từ AJAX -->
+        </div>
+
+        <div class="ota-section">
+            <h2>Nâng Cấp Phần Mềm Hệ Thống (OTA)</h2>
+            <div class="ota-grid">
+                <!-- OTA Master -->
+                <div class="ota-card">
+                    <h3 style="margin-top:0;color:#cbd5e1;font-size:16px;">Nâng cấp Master Node (Tự cập nhật)</h3>
+                    <form id="master-form" action="/update-master" method="POST" enctype="multipart/form-data" class="upload-form">
+                        <label for="master-file" id="master-label" class="file-label">Kéo thả hoặc click chọn file firmware.bin</label>
+                        <input type="file" name="firmware" id="master-file" class="file-input" accept=".bin" required>
+                        <div class="progress-bar"><div id="master-fill" class="progress-fill"></div></div>
+                        <div id="master-text" class="progress-text">0%</div>
+                        <button type="submit" id="master-btn" class="btn">Bắt đầu nâng cấp</button>
+                    </form>
+                </div>
+
+                <!-- OTA Satellites -->
+                <div class="ota-card">
+                    <h3 style="margin-top:0;color:#cbd5e1;font-size:16px;">Nâng cấp các Vệ tinh (Qua mạng Mesh)</h3>
+                    <form id="sat-form" action="/update-satellite" method="POST" enctype="multipart/form-data" class="upload-form">
+                        <select name="sat_id" id="sat-id-select" style="width:100%;padding:10px;border-radius:6px;background:rgba(15,23,42,0.6);color:white;border:1px solid rgba(255,255,255,0.15);outline:none;box-sizing:border-box;margin-bottom:10px;">
+                            <option value="1">Vệ tinh 1</option>
+                            <option value="2">Vệ tinh 2</option>
+                            <option value="3">Vệ tinh 3</option>
+                            <option value="4">Vệ tinh 4</option>
+                            <option value="5">Vệ tinh 5</option>
+                        </select>
+                        <label for="sat-file" id="sat-label" class="file-label">Kéo thả hoặc click chọn file firmware.bin</label>
+                        <input type="file" name="firmware" id="sat-file" class="file-input" accept=".bin" required>
+                        <div class="progress-bar"><div id="sat-fill" class="progress-fill"></div></div>
+                        <div id="sat-text" class="progress-text">0%</div>
+                        <button type="submit" id="sat-btn" class="btn">Gửi tới mạng Mesh</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateDashboard() {
+            fetch('/api/status')
+                .then(res => res.json())
+                .then(data => {
+                    const grid = document.getElementById('node-grid');
+                    grid.innerHTML = '';
+                    
+                    grid.appendChild(createNodeCard('Master (Cửa thoát)', data.master, true));
+                    
+                    data.satellites.forEach(sat => {
+                        if (sat.active) {
+                            grid.appendChild(createNodeCard('Vệ tinh ' + sat.id, sat, false));
+                        }
+                    });
+                })
+                .catch(err => console.error('Error fetching status:', err));
+        }
+        
+        function createNodeCard(name, node, isMaster) {
+            const div = document.createElement('div');
+            div.className = 'card' + (node.emergency ? ' fire' : '');
+            
+            const badgeClass = node.emergency ? 'badge-fire' : 'badge-safe';
+            const badgeText = node.emergency ? 'NGUY HIỂM' : 'AN TOÀN';
+            
+            div.innerHTML = `
+                <div class="card-header">
+                    <h3 class="card-title">${name}</h3>
+                    <span class="badge ${badgeClass}">${badgeText}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Nhiệt độ:</span>
+                    <span class="metric-value">${node.temp.toFixed(1)} °C</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Khói Gas:</span>
+                    <span class="metric-value">${node.gas}</span>
+                </div>
+                \${!isMaster ? `
+                <div class="metric">
+                    <span class="metric-label">Next Hop ID:</span>
+                    <span class="metric-value">\${node.nextHopId !== 255 ? node.nextHopId : 'MẤT TUYẾN'}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Thế năng APF:</span>
+                    <span class="metric-value">\${node.pot !== 9999 ? node.pot.toFixed(1) : 'VÔ HẠN (KẸT)'}</span>
+                </div>
+                ` : ''}
+            `;
+            return div;
+        }
+        
+        setInterval(updateDashboard, 3000);
+        updateDashboard();
+
+        function handleUpload(formId, inputId, labelId, progressFillId, progressTextId, btnId) {
+            const form = document.getElementById(formId);
+            const input = document.getElementById(inputId);
+            const label = document.getElementById(labelId);
+            const fill = document.getElementById(progressFillId);
+            const text = document.getElementById(progressTextId);
+            const bar = fill.parentElement;
+            const btn = document.getElementById(btnId);
+            
+            input.addEventListener('change', () => {
+                if (input.files.length > 0) {
+                    label.innerText = input.files[0].name;
+                }
+            });
+            
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (input.files.length === 0) return;
+                
+                const formData = new FormData(form);
+                
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', form.action, true);
+                
+                bar.style.display = 'block';
+                text.style.display = 'block';
+                btn.disabled = true;
+                btn.innerText = 'Đang tải lên...';
+                
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        fill.style.width = percent + '%';
+                        text.innerText = percent + '% (' + Math.round(e.loaded/1024) + ' KB / ' + Math.round(e.total/1024) + ' KB)';
+                    }
+                });
+                
+                xhr.onreadystatechange = () => {
+                    if (xhr.readyState === XMLHttpRequest.DONE) {
+                        if (xhr.status === 200) {
+                            alert(xhr.responseText);
+                            location.reload();
+                        } else {
+                            alert('Tải lên thất bại! Vui lòng thử lại.');
+                            btn.disabled = false;
+                            btn.innerText = 'Bắt đầu nâng cấp';
+                            bar.style.display = 'none';
+                            text.style.display = 'none';
+                        }
+                    }
+                };
+                xhr.send(formData);
+            });
+        }
+        
+        handleUpload('master-form', 'master-file', 'master-label', 'master-fill', 'master-text', 'master-btn');
+        handleUpload('sat-form', 'sat-file', 'sat-label', 'sat-fill', 'sat-text', 'sat-btn');
+    </script>
+</body>
+</html>
+        )rawhtml";
+        server.send(200, "text/html", html);
+    });
+
+    // API lấy trạng thái Mesh
+    server.on("/api/status", HTTP_GET, [statusJsonCallback]() {
+        server.send(200, "application/json", statusJsonCallback());
+    });
+
+    // Upload OTA cho Master Node (Tự cập nhật)
+    server.on("/update-master", HTTP_POST, []() {
+        server.sendHeader("Connection", "close");
+        server.send(200, "text/plain", (Update.hasError()) ? "NÂNG CẤP MASTER THẤT BẠI!" : "NÂNG CẤP MASTER THÀNH CÔNG! Đang khởi động lại...");
+        delay(1000);
+        ESP.restart();
+    }, []() {
+        HTTPUpload& upload = server.upload();
+        if (upload.status == UPLOAD_FILE_START) {
+            Serial.printf("[OTA Master] Bắt đầu nhận file: %s\n", upload.filename.c_str());
+            if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+                Update.printError(Serial);
+            }
+        } else if (upload.status == UPLOAD_FILE_WRITE) {
+            if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+                Update.printError(Serial);
+            }
+        } else if (upload.status == UPLOAD_FILE_END) {
+            if (Update.end(true)) {
+                Serial.printf("[OTA Master] Thành công! Kích thước: %u bytes\n", upload.totalSize);
+            } else {
+                Update.printError(Serial);
+            }
+        }
+    });
+
+    // Upload OTA cho Satellite Nodes (Ghi LittleFS và đổi cờ báo phát Mesh)
+    server.on("/update-satellite", HTTP_POST, []() {
+        String satIdStr = server.arg("sat_id");
+        m_otaTargetSatId = satIdStr.toInt();
+        Serial.printf("[Web Server] Nhận yêu cầu OTA cho Satellite Node %d\n", m_otaTargetSatId);
+
+        server.sendHeader("Connection", "close");
+        server.send(200, "text/plain", "Đã tải lên Satellite firmware thành công! Bắt đầu truyền vô tuyến qua mạng Mesh...");
+        m_satelliteOtaPending = true; // Kích hoạt cờ báo gửi OTA cho vệ tinh
+    }, []() {
+        HTTPUpload& upload = server.upload();
+        if (upload.status == UPLOAD_FILE_START) {
+            Serial.printf("[OTA Satellite] Nhận file từ Web: %s\n", upload.filename.c_str());
+            otaFile = LittleFS.open("/satellite_firmware.bin", "w");
+            if (!otaFile) {
+                Serial.println("[OTA Satellite Error] Không thể mở file trên Flash LittleFS!");
+            }
+        } else if (upload.status == UPLOAD_FILE_WRITE) {
+            if (otaFile) {
+                otaFile.write(upload.buf, upload.currentSize);
+            }
+        } else if (upload.status == UPLOAD_FILE_END) {
+            if (otaFile) {
+                otaFile.close();
+                Serial.printf("[OTA Satellite] Lưu file thành công! Kích thước: %u bytes\n", upload.totalSize);
+            }
+        }
+    });
+
+    server.begin();
+    Serial.println("[Web Server] Đã kích hoạt Web Server chế độ hoạt động bình thường trên cổng 80.");
+}
+
+void ConfigService::handleNormalWebServer() {
+    server.handleClient();
+}
+
+WebServer& ConfigService::getWebServer() {
+    return server;
 }

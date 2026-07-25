@@ -38,17 +38,123 @@ void setup() {
     
     // Khởi tạo Gateway Mesh
     meshGateway.init();
+
+    // Khởi động Web Server hoạt động bình thường phục vụ Dashboard và OTA
+    ConfigService::startNormalWebServer([]() {
+        String json = "{";
+        
+        // Trạng thái Master Node
+        bool masterEmergency = (master_gas >= 400 || master_temp >= 55.0);
+        json += "\"master\": {";
+        json += "\"temp\":" + String(master_temp) + ",";
+        json += "\"gas\":" + String(master_gas) + ",";
+        json += "\"emergency\":" + String(masterEmergency ? "true" : "false");
+        json += "},";
+        
+        // Trạng thái các Satellite Nodes
+        json += "\"satellites\": [";
+        for (int i = 1; i <= 5; i++) {
+            bool active = false;
+            const uint8_t* mac = meshGateway.getSatMac(i);
+            if (mac) {
+                for (int j = 0; j < 6; j++) {
+                    if (mac[j] != 0) { active = true; break; }
+                }
+            }
+            
+            float temp = meshGateway.getSatTemp(i);
+            int gas = meshGateway.getSatGas(i);
+            bool emergency = (gas >= 400 || temp >= 55.0);
+            
+            json += "{";
+            json += "\"id\":" + String(i) + ",";
+            json += "\"temp\":" + String(temp) + ",";
+            json += "\"gas\":" + String(gas) + ",";
+            json += "\"active\":" + String(active ? "true" : "false") + ",";
+            json += "\"emergency\":" + String(emergency ? "true" : "false") + ",";
+            json += "\"nextHopId\":0,";
+            json += "\"pot\":0.0";
+            json += "}";
+            if (i < 5) json += ",";
+        }
+        json += "]";
+        
+        json += "}";
+        return json;
+    });
 }
+
+uint8_t sequentialOtaTarget = 0; // 0: tắt, 1-5: Node đang được cập nhật tuần tự
 
 // ==================== LOOP ====================
 void loop() {
-    // Không cần gọi checkResetButton ở đây nữa vì đã có task FreeRTOS chạy ngầm xử lý độc lập
+    // Xử lý các yêu cầu Web Client gửi tới Gateway
+    ConfigService::handleNormalWebServer();
+
+    // Xử lý tiến trình truyền tải OTA qua ESP-NOW
+    meshGateway.processOtaTransmission();
 
     unsigned long currentMillis = millis();
 
     bool isEmergency = false;
     SensorService::read(master_temp, master_gas, isEmergency);
     SensorService::updateAlarm(isEmergency, true);
+
+    // Kiểm tra xem Web Server có yêu cầu truyền OTA vô tuyến không
+    if (ConfigService::isSatelliteOtaPending()) {
+        uint8_t targetSatId = ConfigService::getOtaTargetSatId();
+        if (targetSatId == 0xFE) { // Tất cả các vệ tinh tuần tự
+            Serial.println("[OTA Master] Bắt đầu nâng cấp tuần tự toàn mạng...");
+            sequentialOtaTarget = 1;
+            while (sequentialOtaTarget <= 5) {
+                const uint8_t* mac = meshGateway.getSatMac(sequentialOtaTarget);
+                bool hasMac = false;
+                if (mac) {
+                    for (int j = 0; j < 6; j++) {
+                        if (mac[j] != 0) { hasMac = true; break; }
+                    }
+                }
+                if (hasMac) {
+                    meshGateway.startOtaUpdate(sequentialOtaTarget);
+                    break;
+                }
+                sequentialOtaTarget++;
+            }
+            if (sequentialOtaTarget > 5) {
+                Serial.println("[OTA Master] Không tìm thấy vệ tinh nào trực tuyến!");
+                sequentialOtaTarget = 0;
+            }
+        } else {
+            sequentialOtaTarget = 0;
+            meshGateway.startOtaUpdate(targetSatId);
+        }
+        ConfigService::clearSatelliteOtaPending();
+    }
+
+    // Nếu đang chạy nâng cấp tuần tự, tự động chuyển sang nút tiếp theo khi nút trước hoàn thành
+    if (sequentialOtaTarget > 0 && sequentialOtaTarget <= 5) {
+        if (!meshGateway.isOtaActive()) {
+            sequentialOtaTarget++;
+            while (sequentialOtaTarget <= 5) {
+                const uint8_t* mac = meshGateway.getSatMac(sequentialOtaTarget);
+                bool hasMac = false;
+                if (mac) {
+                    for (int j = 0; j < 6; j++) {
+                        if (mac[j] != 0) { hasMac = true; break; }
+                    }
+                }
+                if (hasMac) {
+                    meshGateway.startOtaUpdate(sequentialOtaTarget);
+                    break;
+                }
+                sequentialOtaTarget++;
+            }
+            if (sequentialOtaTarget > 5) {
+                Serial.println("[OTA Master] Hoàn thành cập nhật phần mềm toàn hệ thống vệ tinh!");
+                sequentialOtaTarget = 0;
+            }
+        }
+    }
 
     if (currentMillis - lastRouteBroadcastTime >= ROUTE_BROADCAST_INTERVAL) {
         meshGateway.broadcastRouteUpdate();
