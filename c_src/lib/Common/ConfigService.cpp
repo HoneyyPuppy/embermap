@@ -74,9 +74,9 @@ static String getPortalHtml() {
     <title>Embermap Config Portal</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f6;
+            color: #1f2937;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -86,26 +86,27 @@ static String getPortalHtml() {
             box-sizing: border-box;
         }
         .card {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 30px;
-            border-radius: 16px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            padding: 35px 30px;
+            border-radius: 14px;
             width: 100%;
-            max-width: 450px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-width: 420px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
             text-align: center;
         }
         h2 {
             margin-top: 0;
-            color: #38bdf8;
-            font-size: 24px;
-            letter-spacing: 0.5px;
+            color: #111827;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
         }
         p {
-            color: #94a3b8;
-            font-size: 14px;
+            color: #6b7280;
+            font-size: 13.5px;
             margin-bottom: 25px;
+            line-height: 1.5;
         }
         .form-group {
             text-align: left;
@@ -114,47 +115,48 @@ static String getPortalHtml() {
         label {
             display: block;
             margin-bottom: 6px;
-            font-weight: 500;
-            font-size: 13px;
-            color: #cbd5e1;
+            font-weight: 600;
+            font-size: 11px;
+            color: #4b5563;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         input[type="text"], input[type="password"], select {
             width: 100%;
-            padding: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(15, 23, 42, 0.6);
+            padding: 11px 14px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
             border-radius: 8px;
-            color: #ffffff;
+            color: #111827;
             font-size: 14px;
             box-sizing: border-box;
             outline: none;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
         input[type="text"]:focus, input[type="password"]:focus, select:focus {
-            border-color: #38bdf8;
-            box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
         }
         button {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(95deg, #0ea5e9 0%, #2563eb 100%);
+            padding: 12px;
+            background: #111827;
             border: none;
             border-radius: 8px;
             color: white;
             font-weight: 600;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: background 0.2s;
             margin-top: 10px;
         }
         button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.4);
+            background: #1f2937;
         }
         .footer {
             margin-top: 25px;
             font-size: 11px;
-            color: #64748b;
+            color: #9ca3af;
         }
     </style>
 </head>
@@ -230,9 +232,9 @@ void ConfigService::startConfigPortal(const char* portalSsid) {
     <title>Cấu hình thành công</title>
     <style>
         body {
-            font-family: 'Segoe UI', sans-serif;
-            background: #0f172a;
-            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f4f4f6;
+            color: #1f2937;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -240,14 +242,16 @@ void ConfigService::startConfigPortal(const char* portalSsid) {
             margin: 0;
         }
         .card {
-            background: rgba(30, 41, 59, 0.7);
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
             padding: 30px;
-            border-radius: 12px;
+            border-radius: 14px;
             max-width: 400px;
             text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04);
         }
-        h3 { color: #10b981; }
+        h3 { color: #10b981; margin-top: 0; font-size: 20px; }
+        p { color: #4b5563; font-size: 14px; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -346,24 +350,33 @@ void ConfigService::startNormalWebServer(std::function<String()> statusJsonCallb
     <title>Embermap Smart Fire Mesh Gateway</title>
     <style>
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: linear-gradient(135deg, #0b0f19 0%, #1e1b4b 100%);
-            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f6;
+            color: #1f2937;
             margin: 0;
-            padding: 20px;
+            padding: 30px 20px;
             box-sizing: border-box;
             min-height: 100vh;
         }
-        .container { max-width: 1200px; margin: 0 auto; }
+        .container { max-width: 1100px; margin: 0 auto; }
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 30px;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 35px;
         }
-        h1 { margin: 0; color: #38bdf8; font-size: 26px; }
+        h1 { margin: 0; color: #111827; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+        .status-badge {
+            background-color: #e0f2fe;
+            color: #0369a1;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -371,79 +384,86 @@ void ConfigService::startNormalWebServer(std::function<String()> statusJsonCallb
             margin-bottom: 45px;
         }
         .card {
-            background: rgba(30, 41, 59, 0.45);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 20px;
-            transition: transform 0.3s, border-color 0.3s;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 22px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
+            transition: transform 0.2s, border-color 0.2s;
         }
-        .card:hover { transform: translateY(-2px); border-color: rgba(56, 189, 248, 0.3); }
+        .card:hover { transform: translateY(-2px); border-color: #cbd5e1; }
         .card.fire {
             border-color: #ef4444;
-            background: rgba(239, 68, 68, 0.15);
-            box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+            background: #fef2f2;
+            box-shadow: 0 8px 20px -6px rgba(239, 68, 68, 0.12);
         }
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid #f3f4f6;
+            padding-bottom: 10px;
         }
-        .card-title { margin: 0; font-size: 18px; font-weight: 600; color: #cbd5e1; }
+        .card-title { margin: 0; font-size: 16px; font-weight: 600; color: #111827; }
         .badge {
             padding: 4px 8px;
             border-radius: 12px;
             font-size: 11px;
             font-weight: 600;
         }
-        .badge-safe { background: rgba(16, 185, 129, 0.2); color: #10b981; }
-        .badge-fire { background: rgba(239, 68, 68, 0.2); color: #f87171; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+        .badge-safe { background: #d1fae5; color: #065f46; }
+        .badge-fire { background: #fee2e2; color: #991b1b; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
         .metric { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
-        .metric-label { color: #94a3b8; }
-        .metric-value { font-weight: 600; color: #f1f5f9; }
+        .metric-label { color: #6b7280; }
+        .metric-value { font-weight: 600; color: #111827; }
         .ota-section {
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
             padding: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
         }
-        h2 { color: #38bdf8; margin-top: 0; margin-bottom: 25px; font-size: 20px; }
+        h2 { color: #111827; margin-top: 0; margin-bottom: 25px; font-size: 18px; font-weight: 600; }
         .ota-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
         @media (max-width: 768px) { .ota-grid { grid-template-columns: 1fr; } }
         .ota-card {
-            background: rgba(30, 41, 59, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
+            background: #fafafa;
+            border: 1px solid #f3f4f6;
+            border-radius: 10px;
             padding: 20px;
         }
         .upload-form { display: flex; flex-direction: column; gap: 15px; }
         .file-input { display: none; }
         .file-label {
-            border: 2px dashed rgba(56, 189, 248, 0.3);
+            border: 2px dashed #cbd5e1;
+            background: #ffffff;
             border-radius: 8px;
             padding: 25px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s;
-            color: #94a3b8;
+            transition: all 0.2s;
+            color: #6b7280;
+            font-size: 13.5px;
         }
-        .file-label:hover { border-color: #38bdf8; background: rgba(56, 189, 248, 0.05); color: #f8fafc; }
+        .file-label:hover { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
         .btn {
-            background: linear-gradient(95deg, #0ea5e9 0%, #2563eb 100%);
+            background: #111827;
             border: none;
             color: white;
-            padding: 12px;
-            border-radius: 8px;
+            padding: 11px;
+            border-radius: 6px;
             font-weight: 600;
+            font-size: 13.5px;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: background 0.2s;
         }
-        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
-        .progress-bar { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; display: none; }
-        .progress-fill { height: 100%; width: 0%; background: #38bdf8; transition: width 0.1s; }
-        .progress-text { font-size: 12px; color: #94a3b8; text-align: right; display: none; }
+        .btn:hover { background: #1f2937; }
+        .btn:disabled { background: #9ca3af; cursor: not-allowed; }
+        .progress-bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; display: none; margin-top: 5px; }
+        .progress-fill { height: 100%; width: 0%; background: #111827; transition: width 0.1s; }
+        .progress-text { font-size: 11px; color: #6b7280; text-align: right; display: none; }
     </style>
 </head>
 <body>
@@ -463,7 +483,7 @@ void ConfigService::startNormalWebServer(std::function<String()> statusJsonCallb
             <div class="ota-grid">
                 <!-- OTA Master -->
                 <div class="ota-card">
-                    <h3 style="margin-top:0;color:#cbd5e1;font-size:16px;">Nâng cấp Master Node (Tự cập nhật)</h3>
+                    <h3 style="margin-top:0;color:#111827;font-size:15px;font-weight:600;">Nâng cấp Master Node (Tự cập nhật)</h3>
                     <form id="master-form" action="/update-master" method="POST" enctype="multipart/form-data" class="upload-form">
                         <label for="master-file" id="master-label" class="file-label">Kéo thả hoặc click chọn file firmware.bin</label>
                         <input type="file" name="firmware" id="master-file" class="file-input" accept=".bin" required>
@@ -475,9 +495,10 @@ void ConfigService::startNormalWebServer(std::function<String()> statusJsonCallb
 
                 <!-- OTA Satellites -->
                 <div class="ota-card">
-                    <h3 style="margin-top:0;color:#cbd5e1;font-size:16px;">Nâng cấp các Vệ tinh (Qua mạng Mesh)</h3>
+                    <h3 style="margin-top:0;color:#111827;font-size:15px;font-weight:600;">Nâng cấp các Vệ tinh (Qua mạng Mesh)</h3>
                     <form id="sat-form" action="/update-satellite" method="POST" enctype="multipart/form-data" class="upload-form">
-                        <select name="sat_id" id="sat-id-select" style="width:100%;padding:10px;border-radius:6px;background:rgba(15,23,42,0.6);color:white;border:1px solid rgba(255,255,255,0.15);outline:none;box-sizing:border-box;margin-bottom:10px;">
+                        <select name="sat_id" id="sat-id-select" style="width:100%;padding:10px;border-radius:6px;background:#ffffff;color:#111827;border:1px solid #d1d5db;outline:none;box-sizing:border-box;margin-bottom:10px;font-size:13.5px;">
+                            <option value="all">Tất cả các Vệ tinh (Tuần tự)</option>
                             <option value="1">Vệ tinh 1</option>
                             <option value="2">Vệ tinh 2</option>
                             <option value="3">Vệ tinh 3</option>
@@ -577,6 +598,7 @@ void ConfigService::startNormalWebServer(std::function<String()> statusJsonCallb
                 
                 bar.style.display = 'block';
                 text.style.display = 'block';
+                const originalText = btn.innerText;
                 btn.disabled = true;
                 btn.innerText = 'Đang tải lên...';
                 
@@ -596,7 +618,7 @@ void ConfigService::startNormalWebServer(std::function<String()> statusJsonCallb
                         } else {
                             alert('Tải lên thất bại! Vui lòng thử lại.');
                             btn.disabled = false;
-                            btn.innerText = 'Bắt đầu nâng cấp';
+                            btn.innerText = originalText;
                             bar.style.display = 'none';
                             text.style.display = 'none';
                         }
