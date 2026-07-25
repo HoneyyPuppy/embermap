@@ -11,11 +11,15 @@
 #define PACKET_POTENTIAL_ADVERT  5   // APF potential advertisement
 #define PACKET_ROUTE_REQUEST     6   // Active routing request for channel probing
 #define PACKET_EVAC_ADVERT       7   // Evacuation path potential advertisement for humans
+#define PACKET_OTA_START         8   // Bắt đầu truyền OTA, gửi kích thước file + MD5
+#define PACKET_OTA_CHUNK         9   // Gửi một mảnh dữ liệu nhị phân (180 bytes)
+#define PACKET_OTA_ACK          10   // Vệ tinh báo cáo danh sách các mảnh lỗi (NACK) / ACK hoàn tất
+#define PACKET_OTA_END          11   // Kết thúc truyền OTA, yêu cầu reset chạy app mới
 
 #define MAX_ROUTE_PATH           8   // Hạn mức số Hop tối đa để tránh lặp vòng định tuyến
 
 typedef struct __attribute__((packed)) {
-    uint8_t packetType;       // Kiểu gói tin (1 đến 7)
+    uint8_t packetType;       // Kiểu gói tin (1 đến 11)
     uint8_t sourceMac[6];     // MAC gốc phát tin
     uint8_t destMac[6];       // MAC đích cuối
     uint8_t forwardMac[6];    // MAC Next Hop
@@ -33,6 +37,29 @@ typedef struct __attribute__((packed)) {
     
     // Chỉ đường thoát hiểm độc lập
     float evacPotential;      // Evacuation routing potential for humans (APF based, independent)
+
+    // Các trường dùng riêng cho OTA
+    union {
+        // Cấu trúc gói PACKET_OTA_START
+        struct {
+            uint32_t otaFileSize;
+            char otaMd5[33]; // MD5 hex string (32 kí tự + 1 null terminate)
+        } start;
+
+        // Cấu trúc gói PACKET_OTA_CHUNK
+        struct {
+            uint16_t chunkSeq;
+            uint8_t chunkLen;
+            uint8_t chunkData[180];
+        } chunk;
+
+        // Cấu trúc gói PACKET_OTA_ACK
+        struct {
+            uint16_t lastReceivedSeq;
+            uint8_t nackCount;
+            uint16_t nackList[20]; // Danh sách các sequence bị thiếu
+        } ack;
+    } ota;
 
     // Cơ chế chống lặp vòng định tuyến (Loop Prevention)
     uint8_t routePath[MAX_ROUTE_PATH]; // Mảng chứa ID các nút đã đi qua
