@@ -2,15 +2,31 @@
 #include <SensorService.h>
 #include <WiFiService.h>
 #include <common_config.h>
+#include <Preferences.h>
+#include <nvs_flash.h>
 #include "RoutingTable.h"
 #include "MeshNetwork.h"
 
-// ID của Satellite Node này (Cần thay đổi từ 1 đến 5 tương ứng khi nạp code cho 5 board vệ tinh)
-#define SATELLITE_ID 1
+#define DEFAULT_SATELLITE_ID 1
 
+uint8_t loadNodeIdFromPreferences() {
+    // Khởi tạo phân vùng NVS sớm trước khi đọc Preferences ở pha global constructors
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        nvs_flash_init();
+    }
 
-RoutingTable routingTable(SATELLITE_ID);
-MeshNetwork meshNetwork(SATELLITE_ID, routingTable);
+    Preferences prefs;
+    prefs.begin("node-settings", true);
+    uint8_t id = prefs.getUChar("node_id", DEFAULT_SATELLITE_ID);
+    prefs.end();
+    return id;
+}
+
+uint8_t satelliteId = loadNodeIdFromPreferences();
+RoutingTable routingTable(satelliteId);
+MeshNetwork meshNetwork(satelliteId, routingTable);
 
 // Mutex bảo vệ tài nguyên dùng chung giữa 2 core
 SemaphoreHandle_t dataMutex = NULL;
@@ -49,6 +65,11 @@ void networkTask(void *pvParameters) {
     unsigned long lastEvacBroadcastTime = 0;
     
     for (;;) {
+        // Tạm dừng mọi hoạt động định tuyến và chuyển kênh khi đang chạy OTA
+        if (meshNetwork.isOtaActive()) {
+            vTaskDelay(pdMS_TO_TICKS(200));
+            continue;
+        }
         unsigned long currentMillis = millis();
 
         // 1. Quét dọn các parent hết hạn
@@ -123,8 +144,13 @@ void networkTask(void *pvParameters) {
         if (currentMillis - lastEvacBroadcastTime >= 3000) {
             lastEvacBroadcastTime = currentMillis;
             meshNetwork.broadcastEvacPotential(routingTable.getMyEvacPotential());
-            Serial.printf("[Evac Advert] Phát thế năng thoát hiểm: U = %.1f (NextHopId = %d)\n", 
-                          routingTable.getMyEvacPotential(), evacNextHopId);
+            
+            uint8_t dataNextHopId = routingTable.getDataNextHopId();
+            Serial.printf("[Path Monitor] Node %d | Duong gui tin (Data NextHop): %s | Duong thoat hiem (Evac NextHop): %s | U_evac = %.1f\n",
+                          satelliteId,
+                          (dataNextHopId == 0xFF ? "MAT TUYEN" : (dataNextHopId == 0xFE ? "CHUA HOC MAC" : String(dataNextHopId).c_str())),
+                          (evacNextHopId == 0xFF ? "MAT TUYEN" : String(evacNextHopId).c_str()),
+                          routingTable.getMyEvacPotential());
         }
 
         vTaskDelay(pdMS_TO_TICKS(100)); // Nghỉ 100ms
@@ -154,17 +180,11 @@ void sensorTask(void *pvParameters) {
         float repulsivePot = 0.0;
         
         // Nếu cách Master xa hơn khoảng cách chuẩn (do phải đi vòng tránh lửa ở hành lang khác) -> Sáng đèn Vàng
-#if SATELLITE_ID == 1
-        if (sharedEvacPotential > 10.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
-#elif SATELLITE_ID == 2
-        if (sharedEvacPotential > 18.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
-#elif SATELLITE_ID == 3
-        if (sharedEvacPotential > 22.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
-#elif SATELLITE_ID == 4
-        if (sharedEvacPotential > 12.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
-#elif SATELLITE_ID == 5
-        if (sharedEvacPotential > 37.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
-#endif
+        if (satelliteId == 1 && sharedEvacPotential > 10.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
+        else if (satelliteId == 2 && sharedEvacPotential > 18.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
+        else if (satelliteId == 3 && sharedEvacPotential > 22.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
+        else if (satelliteId == 4 && sharedEvacPotential > 12.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
+        else if (satelliteId == 5 && sharedEvacPotential > 37.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
 
         if (emergency || sharedEvacPotential >= 9999.0) {
             // Đỏ nhấp nháy: Bản thân bị cháy hoặc bị kẹt hoàn toàn không lối thoát
@@ -177,10 +197,36 @@ void sensorTask(void *pvParameters) {
             SensorService::updateAlarm(false, sharedHasEvacRoute, repulsivePot);
         }
 
-        // Gửi telemetry về Master qua lớp mạng Gradient
-        meshNetwork.sendSensorData(temp, gas, emergency);
+        // Gửi telemetry về Master qua lớp mạng Gradient nếu không chạy OTA
+        if (!meshNetwork.isOtaActive()) {
+            meshNetwork.sendSensorData(temp, gas, emergency);
+        }
 
         vTaskDelayUntil(&lastWakeTime, SENSOR_PERIOD);
+    }
+}
+
+void serialListenerTask(void* pvParameters) {
+    for (;;) {
+        if (Serial.available()) {
+            String cmd = Serial.readStringUntil('\n');
+            cmd.trim();
+            if (cmd.startsWith("SET_NODE_ID=")) {
+                uint8_t newId = cmd.substring(12).toInt();
+                if (newId >= 1 && newId <= 5) {
+                    Preferences prefs;
+                    prefs.begin("node-settings", false);
+                    prefs.putUChar("node_id", newId);
+                    prefs.end();
+                    Serial.printf("[Settings] Đã cập nhật Node ID thành %d. Đang khởi động lại...\n", newId);
+                    delay(1000);
+                    ESP.restart();
+                } else {
+                    Serial.println("[Settings Error] Node ID chỉ được nằm trong khoảng từ 1 đến 5!");
+                }
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
@@ -189,20 +235,23 @@ void setup() {
     Serial.begin(115200);
     SensorService::init("SATELLITE");
 
+    // Tạo task lắng nghe cấu hình ID từ Serial Monitor (Core 0)
+    xTaskCreatePinnedToCore(serialListenerTask, "SerialListener", 2048, NULL, 1, NULL, 0);
+
     // Tìm và áp dụng cấu hình từ bảng Topology trung tâm trong common_config.h
     bool foundConfig = false;
     for (size_t i = 0; i < sizeof(TOPOLOGY_MAP) / sizeof(TOPOLOGY_MAP[0]); i++) {
-        if (TOPOLOGY_MAP[i].nodeId == SATELLITE_ID) {
+        if (TOPOLOGY_MAP[i].nodeId == satelliteId) {
             routingTable.setAllowedNeighbors(TOPOLOGY_MAP[i].allowedRadio, TOPOLOGY_MAP[i].allowedRadioCount);
             routingTable.setPhysicalNeighbors(TOPOLOGY_MAP[i].physIds, TOPOLOGY_MAP[i].physDists, TOPOLOGY_MAP[i].physCount);
             foundConfig = true;
-            Serial.printf("[Setup] Đã nhận cấu hình topology cho Node %d từ common_config.h\n", SATELLITE_ID);
+            Serial.printf("[Setup] Đã nhận cấu hình topology cho Node %d từ common_config.h\n", satelliteId);
             break;
         }
     }
     
     if (!foundConfig) {
-        Serial.printf("[Setup Warning] Không tìm thấy cấu hình cho Node %d trong TOPOLOGY_MAP. Dùng cấu hình mặc định (kết nối trực tiếp Master).\n", SATELLITE_ID);
+        Serial.printf("[Setup Warning] Không tìm thấy cấu hình cho Node %d trong TOPOLOGY_MAP. Dùng cấu hình mặc định (kết nối trực tiếp Master).\n", satelliteId);
         uint8_t defaultRadio[] = {0};
         uint8_t defaultPhys[] = {0};
         float defaultDist[] = {10.0};
@@ -228,7 +277,7 @@ void setup() {
         // Tạo SensorTask chạy trên Core 0 (System core)
         xTaskCreatePinnedToCore(sensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
         
-        Serial.printf("[FreeRTOS] Đã phân chia đa nhiệm cho Node %d chạy song song Core 1 & Core 0 thành công (Không OLED).\n", SATELLITE_ID);
+        Serial.printf("[FreeRTOS] Đã phân chia đa nhiệm cho Node %d chạy song song Core 1 & Core 0 thành công (Không OLED).\n", satelliteId);
     } else {
         Serial.println("[FreeRTOS FAIL] Lỗi tạo Mutex!");
     }

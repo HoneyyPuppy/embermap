@@ -1,4 +1,5 @@
 #include "MeshNetwork.h"
+#include <Update.h>
 
 MeshNetwork* MeshNetwork::s_instance = nullptr;
 
@@ -7,6 +8,14 @@ MeshNetwork::MeshNetwork(uint8_t satelliteId, RoutingTable& routingTable)
     s_instance = this;
     memset(m_broadcastMac, 0xFF, 6);
     m_pendingSend.active = false;
+
+    // Khởi tạo trạng thái bộ thu OTA
+    m_otaState.active = false;
+    m_otaState.fileSize = 0;
+    m_otaState.totalChunks = 0;
+    m_otaState.expectedSeq = 0;
+    m_otaState.lastPacketTime = 0;
+    memset(m_otaState.masterMac, 0, 6);
 }
 
 bool MeshNetwork::init() {
@@ -190,6 +199,83 @@ void MeshNetwork::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
         Serial.printf("[Evac Recv] Nhận thế năng thoát hiểm từ Node %d: U = %.1f (sender=%02X:%02X)\n", 
                       packet.id, packet.evacPotential, senderMac[0], senderMac[1]);
     }
+    else if (packet.packetType == PACKET_OTA_START) {
+        Serial.printf("[OTA Recv] Nhận gói bắt đầu OTA. File size: %u, MD5: %s\n", 
+                      packet.ota.start.otaFileSize, packet.ota.start.otaMd5);
+        
+        // Đảm bảo peer của người gửi (Master) đã được đăng ký
+        if (!esp_now_is_peer_exist(senderMac)) {
+            esp_now_peer_info_t peerInfo = {};
+            memcpy(peerInfo.peer_addr, senderMac, 6);
+            peerInfo.channel = 0;
+            peerInfo.encrypt = false;
+            esp_now_add_peer(&peerInfo);
+        }
+        
+        m_otaState.active = true;
+        m_otaState.fileSize = packet.ota.start.otaFileSize;
+        m_otaState.totalChunks = (m_otaState.fileSize + 179) / 180;
+        m_otaState.expectedSeq = 0;
+        m_otaState.lastPacketTime = millis();
+        memcpy(m_otaState.masterMac, senderMac, 6);
+        
+        Update.setMD5(packet.ota.start.otaMd5);
+        if (!Update.begin(m_otaState.fileSize, U_FLASH)) {
+            Serial.print("[OTA Recv Error] Update.begin failed: ");
+            Update.printError(Serial);
+            sendOtaAck(0xFFFF); // Báo lỗi
+        } else {
+            Serial.println("[OTA Recv] Update.begin thành công. Đang đợi chunks...");
+            sendOtaAck(0xFFFF); // Báo sẵn sàng nhận
+        }
+    }
+    else if (packet.packetType == PACKET_OTA_CHUNK) {
+        if (!m_otaState.active) return;
+        
+        uint16_t seq = packet.ota.chunk.chunkSeq;
+        uint8_t len = packet.ota.chunk.chunkLen;
+        
+        if (seq == m_otaState.expectedSeq) {
+            size_t written = Update.write((uint8_t*)packet.ota.chunk.chunkData, len);
+            if (written == len) {
+                m_otaState.expectedSeq++;
+                m_otaState.lastPacketTime = millis();
+                
+                // Gửi ACK mỗi 20 gói hoặc khi nhận gói cuối cùng của ứng dụng
+                if (m_otaState.expectedSeq % 20 == 0 || m_otaState.expectedSeq == m_otaState.totalChunks) {
+                    sendOtaAck(m_otaState.expectedSeq - 1);
+                }
+            } else {
+                Serial.printf("[OTA Recv Error] Ghi mảnh %d thất bại!\n", seq);
+                sendOtaAck(m_otaState.expectedSeq - 1);
+            }
+        } 
+        else if (seq < m_otaState.expectedSeq) {
+            // Gói tin trùng lặp, phản hồi ACK ngay lập tức
+            sendOtaAck(m_otaState.expectedSeq - 1);
+        } 
+        else {
+            // Mất gói! Phản hồi ACK mảnh cuối cùng thành công để yêu cầu gửi lại
+            Serial.printf("[OTA Recv Warning] Nhận lệch mảnh! Nhận: %d, Đợi: %d\n", seq, m_otaState.expectedSeq);
+            sendOtaAck(m_otaState.expectedSeq - 1);
+        }
+    }
+    else if (packet.packetType == PACKET_OTA_END) {
+        if (!m_otaState.active) return;
+        
+        Serial.println("[OTA Recv] Nhận lệnh kết thúc. Đang xác thực MD5...");
+        if (Update.end(true)) {
+            Serial.println("[OTA Recv SUCCESS] Nâng cấp thành công! Đang khởi động lại...");
+            sendOtaAck(0xFFFE); // Gửi ACK thành công
+            delay(1000);
+            ESP.restart();
+        } else {
+            Serial.print("[OTA Recv FAIL] Xác thực MD5 thất bại: ");
+            Update.printError(Serial);
+            sendOtaAck(0xFFFD); // Gửi ACK lỗi xác thực
+            m_otaState.active = false;
+        }
+    }
 }
 
 void MeshNetwork::handleSent(const esp_now_send_info_t *tx_info, esp_now_send_status_t status) {
@@ -206,7 +292,7 @@ void MeshNetwork::handleSent(const esp_now_send_info_t *tx_info, esp_now_send_st
             if (failedIdx < m_routingTable.getParentCount()) {
                 const ParentCandidate* candidates = m_routingTable.getCandidates();
                 Serial.printf("[Mesh FAIL] Loại bỏ Parent lỗi: %02X:%02X ra khỏi danh sách.\n", 
-                              candidates[failedIdx].mac[0], candidates[failedIdx].mac[1]);
+                               candidates[failedIdx].mac[0], candidates[failedIdx].mac[1]);
                 m_routingTable.removeCandidateAtIndex(failedIdx);
             }
             
@@ -242,4 +328,15 @@ void MeshNetwork::broadcastEvacPotential(float potential) {
             }
         }
     }
+}
+
+void MeshNetwork::sendOtaAck(uint16_t lastReceivedSeq) {
+    MeshPacket packet = {};
+    packet.packetType = PACKET_OTA_ACK;
+    memcpy(packet.sourceMac, m_myMac, 6);
+    memcpy(packet.destMac, m_otaState.masterMac, 6);
+    packet.id = m_satelliteId;
+    packet.ota.ack.lastReceivedSeq = lastReceivedSeq;
+    
+    esp_now_send(m_otaState.masterMac, (uint8_t *)&packet, sizeof(packet));
 }

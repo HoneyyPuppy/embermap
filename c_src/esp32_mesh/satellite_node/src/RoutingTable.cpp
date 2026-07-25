@@ -215,3 +215,24 @@ bool RoutingTable::calculateEvacuation(float localRepulsive, float &outTotalPote
         return false;
     }
 }
+
+uint8_t RoutingTable::getDataNextHopId() const {
+    if (!m_hasRoute) return 0xFF;
+    
+    // Tìm ID láng giềng có địa chỉ MAC khớp với Data Next Hop MAC
+    for (uint8_t i = 0; i < m_physCount; i++) {
+        if (memcmp(m_physNeighbors[i].mac, m_nextHopMac, 6) == 0) {
+            return m_physNeighbors[i].id;
+        }
+    }
+    
+    // Kiểm tra xem MAC của Data Next Hop có phải là all-zero (chưa kết nối)
+    bool isMacZero = true;
+    for (int j = 0; j < 6; j++) {
+        if (m_nextHopMac[j] != 0) { isMacZero = false; break; }
+    }
+    if (isMacZero) return 0xFF;
+    
+    // Nếu không trùng láng giềng vệ tinh nào nhưng MAC khác 0, đó chính là Master Node 0
+    return 0;
+}

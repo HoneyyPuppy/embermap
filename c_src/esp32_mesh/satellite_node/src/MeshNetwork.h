@@ -26,11 +26,24 @@ public:
     bool isWaitingForScanAck() const { return m_pendingSend.active; }
     void stopScanningAck() { m_pendingSend.active = false; }
 
+    // Phương thức gửi ACK cho OTA
+    void sendOtaAck(uint16_t lastReceivedSeq);
+    bool isOtaActive() const { return m_otaState.active; }
+
 private:
     uint8_t m_satelliteId;
     RoutingTable& m_routingTable;
     uint8_t m_myMac[6];
     uint8_t m_broadcastMac[6];
+
+    struct OtaReceiverState {
+        bool active;
+        uint32_t fileSize;
+        uint16_t totalChunks;
+        uint16_t expectedSeq;
+        unsigned long lastPacketTime;
+        uint8_t masterMac[6];
+    } m_otaState;
 
     struct PendingSend {
         MeshPacket packet;

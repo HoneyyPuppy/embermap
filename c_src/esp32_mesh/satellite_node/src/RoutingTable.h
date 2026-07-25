@@ -35,6 +35,7 @@ public:
     const uint8_t* getNextHopMac() const { return m_nextHopMac; }
     uint8_t getParentCount() const { return m_parentCount; }
     const ParentCandidate* getCandidates() const { return m_candidates; }
+    uint8_t getDataNextHopId() const;
     
     const uint8_t* getParentRoutePath() const { return m_parentRoutePath; }
     uint8_t getParentRoutePathLen() const { return m_parentRoutePathLen; }
