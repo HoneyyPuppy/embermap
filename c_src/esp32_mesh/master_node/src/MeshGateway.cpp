@@ -158,6 +158,7 @@ void MeshGateway::broadcastEvacPotential(float potential) {
     memset(packet.forwardMac, 0, 6);
     packet.id = 0; // Master ID = 0
     packet.evacPotential = potential;
+    packet.evacNextHopId = (potential >= 9999.0) ? 0xFF : 0; // Master bị chặn nếu U >= 9999.0
 
     esp_now_send(m_broadcastMac, (uint8_t *)&packet, sizeof(packet));
 }

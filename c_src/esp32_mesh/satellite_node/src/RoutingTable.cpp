@@ -134,6 +134,7 @@ void RoutingTable::setPhysicalNeighbors(const uint8_t* ids, const float* distanc
         m_physNeighbors[i].id = ids[i];
         m_physNeighbors[i].distance = distances[i];
         m_physNeighbors[i].evacPotential = ids[i] == 0 ? 0.0 : 9999.0;
+        m_physNeighbors[i].evacNextHopId = ids[i] == 0 ? 0 : 0xFF;
         m_physNeighbors[i].active = ids[i] == 0 ? true : false;
         m_physNeighbors[i].lastSeen = millis();
         memset(m_physNeighbors[i].mac, 0, 6);
@@ -151,10 +152,11 @@ void RoutingTable::updatePhysicalNeighborMac(uint8_t id, const uint8_t* mac) {
     }
 }
 
-void RoutingTable::updateEvacPotential(uint8_t neighborId, float potential) {
+void RoutingTable::updateEvacPotential(uint8_t neighborId, float potential, uint8_t nextHopId) {
     for (uint8_t i = 0; i < m_physCount; i++) {
         if (m_physNeighbors[i].id == neighborId) {
             m_physNeighbors[i].evacPotential = potential;
+            m_physNeighbors[i].evacNextHopId = nextHopId;
             m_physNeighbors[i].lastSeen = millis();
             m_physNeighbors[i].active = true;
             break;
@@ -178,6 +180,12 @@ bool RoutingTable::calculateEvacuation(float localRepulsive, float &outTotalPote
 
     for (uint8_t i = 0; i < m_physCount; i++) {
         if (m_physNeighbors[i].active || m_physNeighbors[i].id == 0) {
+            // Kiểm tra tránh vòng lặp ngõ cụt:
+            // Nếu láng giềng đang coi chúng ta là Next Hop thoát hiểm của nó -> Bỏ qua
+            if (m_physNeighbors[i].id != 0 && m_physNeighbors[i].evacNextHopId == m_satelliteId) {
+                continue;
+            }
+
             if (m_physNeighbors[i].id != 0 && (millis() - m_physNeighbors[i].lastSeen > 15000)) {
                 m_physNeighbors[i].evacPotential = 9999.0;
             }

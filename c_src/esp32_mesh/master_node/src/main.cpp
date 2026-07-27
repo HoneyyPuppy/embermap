@@ -162,8 +162,8 @@ void loop() {
     }
 
     if (currentMillis - lastEvacBroadcastTime >= EVAC_BROADCAST_INTERVAL) {
-        // Master Node là cửa thoát hiểm chính nên U_evac luôn = 0.0
-        meshGateway.broadcastEvacPotential(0.0);
+        bool masterEmergency = (master_gas >= 400 || master_temp >= 55.0);
+        meshGateway.broadcastEvacPotential(masterEmergency ? 9999.0 : 0.0);
         lastEvacBroadcastTime = currentMillis;
     }
 

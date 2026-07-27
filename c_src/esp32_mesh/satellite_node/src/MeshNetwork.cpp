@@ -195,7 +195,7 @@ void MeshNetwork::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
         }
     }
     else if (packet.packetType == PACKET_EVAC_ADVERT) {
-        m_routingTable.updateEvacPotential(packet.id, packet.evacPotential);
+        m_routingTable.updateEvacPotential(packet.id, packet.evacPotential, packet.evacNextHopId);
         Serial.printf("[Evac Recv] Nhận thế năng thoát hiểm từ Node %d: U = %.1f (sender=%02X:%02X)\n", 
                       packet.id, packet.evacPotential, senderMac[0], senderMac[1]);
     }
@@ -309,6 +309,7 @@ void MeshNetwork::broadcastEvacPotential(float potential) {
     memset(packet.forwardMac, 0, 6);
     packet.id = m_satelliteId;
     packet.evacPotential = potential;
+    packet.evacNextHopId = m_routingTable.getEvacNextHopId();
 
     // 1. Gửi broadcast thông thường (tầm phủ ngắn, không đảm bảo)
     esp_now_send(m_broadcastMac, (uint8_t *)&packet, sizeof(packet));

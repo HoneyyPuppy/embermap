@@ -37,6 +37,7 @@ typedef struct __attribute__((packed)) {
     
     // Chỉ đường thoát hiểm độc lập
     float evacPotential;      // Evacuation routing potential for humans (APF based, independent)
+    uint8_t evacNextHopId;    // ID của nút tiếp theo trên đường thoát hiểm (0 = Master, 1-5 = Vệ tinh, 0xFF = Không có/Kẹt)
 
     // Các trường dùng riêng cho OTA
     union {
