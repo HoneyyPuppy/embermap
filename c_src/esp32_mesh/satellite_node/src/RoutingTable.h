@@ -25,6 +25,16 @@ typedef struct {
     bool active;            // Trạng thái đã học được MAC hay chưa
 } PhysicalNeighbor;
 
+#define MAX_LINK_QUALITY_ENTRIES 6
+
+typedef struct {
+    uint8_t mac[6];
+    float etx;
+    float deliveryRatio;
+    unsigned long lastTxTime;
+    bool active;
+} LinkQuality;
+
 class RoutingTable {
 public:
     RoutingTable(uint8_t satelliteId);
@@ -46,6 +56,12 @@ public:
     void setAllowedNeighbors(const uint8_t* allowedList, uint8_t count);
     bool isAllowedNeighbor(uint8_t neighborId) const;
 
+    // Các hàm phục vụ chỉ số chất lượng liên kết ETX
+    void updateEtx(const uint8_t* mac, bool success);
+    float getLinkEtx(const uint8_t* mac) const;
+    void recordTxTime(const uint8_t* mac);
+    unsigned long getLastTxTime(const uint8_t* mac) const;
+
     // Các hàm phục vụ định tuyến thoát hiểm con người (Evacuation Routing)
     void setPhysicalNeighbors(const uint8_t* ids, const float* distances, uint8_t count);
     void updatePhysicalNeighborMac(uint8_t id, const uint8_t* mac);
@@ -57,6 +73,7 @@ public:
     uint8_t getPhysCount() const { return m_physCount; }
 
 private:
+    LinkQuality m_linkQualities[MAX_LINK_QUALITY_ENTRIES];
     uint8_t m_satelliteId;
     ParentCandidate m_candidates[MAX_PARENT_CANDIDATES];
     uint8_t m_parentCount;

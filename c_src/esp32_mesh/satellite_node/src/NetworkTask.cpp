@@ -12,6 +12,7 @@ static const unsigned long ROUTE_TIMEOUT = 12000;
 
 static unsigned long lastRouteBroadcastTime = 0;
 static unsigned long lastEvacBroadcastTime = 0;
+static unsigned long lastEtxPingTime = 0;
 
 void networkTask(void *pvParameters) {
     for (;;) {
@@ -101,6 +102,18 @@ void networkTask(void *pvParameters) {
                           (dataNextHopId == 0xFF ? "MAT TUYEN" : (dataNextHopId == 0xFE ? "CHUA HOC MAC" : String(dataNextHopId).c_str())),
                           (evacNextHopId == 0xFF ? "MAT TUYEN" : String(evacNextHopId).c_str()),
                           routingTable.getMyEvacPotential());
+        }
+
+        // 6. Định kỳ (mỗi 2 giây) kiểm tra chất lượng liên kết dự phòng qua ETX ping
+        if (hasRoute && (currentMillis - lastEtxPingTime >= 2000)) {
+            lastEtxPingTime = currentMillis;
+            uint8_t parentCount = routingTable.getParentCount();
+            const ParentCandidate* candidates = routingTable.getCandidates();
+            for (int i = 0; i < parentCount; i++) {
+                if (currentMillis - routingTable.getLastTxTime(candidates[i].mac) >= 10000) {
+                    meshNetwork.sendEtxPing(candidates[i].mac);
+                }
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(100)); // Nghỉ 100ms

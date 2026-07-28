@@ -67,4 +67,7 @@ void MeshGateway::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
     else if (packet.packetType == PACKET_OTA_ACK) {
         m_otaSender.handleAck(packet);
     }
+    else if (packet.packetType == PACKET_ETX_PING) {
+        Serial.printf("[ETX] Received ping from Node %d\n", packet.id);
+    }
 }

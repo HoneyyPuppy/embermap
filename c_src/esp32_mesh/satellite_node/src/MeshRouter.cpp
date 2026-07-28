@@ -22,13 +22,13 @@ void MeshRouter::handleRouteUpdate(const esp_now_recv_info_t* info, const MeshPa
     }
 
     int rssi = info->rx_ctrl->rssi;
-    float linkCost = calculateLinkCost(rssi);
-    float newCost = pkt.routingCost + linkCost;
+    float linkEtx = m_routingTable.getLinkEtx(senderMac);
+    float newCost = pkt.routingCost + linkEtx;
 
     m_routingTable.updateCandidate(senderMac, newCost, pkt.routePath, pkt.routePathLen);
     
-    Serial.printf("[Mesh Table] Cập nhật Parent Candidate: MAC=%02X:%02X... | Cost=%.1f (RSSI=%d dBm, LinkCost=%.1f)\n",
-                  senderMac[0], senderMac[1], newCost, rssi, linkCost);
+    Serial.printf("[Mesh Table] Cập nhật Parent Candidate: MAC=%02X:%02X... | Cost=%.1f (RSSI=%d dBm, ETX=%.1f)\n",
+                  senderMac[0], senderMac[1], newCost, rssi, linkEtx);
 
     Serial.println("[Mesh Table] Danh sách Parent Candidates hiện tại:");
     uint8_t parentCount = m_routingTable.getParentCount();

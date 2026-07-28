@@ -21,6 +21,7 @@ public:
     OtaReceiver& otaReceiver() { return m_otaReceiver; }
     bool isOtaActive() const { return m_otaReceiver.isActive(); }
     void stopScanningAck() { m_pendingSend.active = false; }
+    void sendEtxPing(const uint8_t* targetMac);
 
     static void onRecvStatic(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len);
     static void onSentStatic(const esp_now_send_info_t *tx_info, esp_now_send_status_t status);

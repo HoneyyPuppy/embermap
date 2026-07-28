@@ -135,12 +135,20 @@ void MeshNetwork::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
         case PACKET_OTA_END:
             m_otaReceiver.handleEnd(packet);
             break;
+        case PACKET_ETX_PING:
+            Serial.printf("[ETX] Nhận gói Ping từ Node %d (%02X:%02X...)\n", packet.id, senderMac[0], senderMac[1]);
+            break;
         default:
             break;
     }
 }
 
 void MeshNetwork::handleSent(const esp_now_send_info_t *tx_info, esp_now_send_status_t status) {
+    if (memcmp(tx_info->des_addr, m_broadcastMac, 6) != 0) {
+        m_routingTable.updateEtx(tx_info->des_addr, status == ESP_NOW_SEND_SUCCESS);
+        m_routingTable.recordTxTime(tx_info->des_addr);
+    }
+
     if (m_pendingSend.active && memcmp(tx_info->des_addr, m_pendingSend.packet.forwardMac, 6) == 0) {
         if (status == ESP_NOW_SEND_SUCCESS) {
             Serial.printf("[Mesh OK] Gửi thành công tới Parent [%d]: %02X:%02X!\n", 
@@ -161,4 +169,26 @@ void MeshNetwork::handleSent(const esp_now_send_info_t *tx_info, esp_now_send_st
             updateAndSendToParent(m_pendingSend.currentParentIdx);
         }
     }
+}
+
+void MeshNetwork::sendEtxPing(const uint8_t* targetMac) {
+    MeshPacket pingPkt = {};
+    pingPkt.packetType = PACKET_ETX_PING;
+    memcpy(pingPkt.sourceMac, m_myMac, 6);
+    memcpy(pingPkt.destMac, targetMac, 6);
+    pingPkt.id = m_satelliteId;
+
+    if (!esp_now_is_peer_exist(targetMac)) {
+        esp_now_peer_info_t peerInfo = {};
+        memcpy(peerInfo.peer_addr, targetMac, 6);
+        peerInfo.channel = 0;
+        peerInfo.encrypt = false;
+        peerInfo.ifidx = WIFI_IF_STA;
+        esp_now_add_peer(&peerInfo);
+    }
+
+    esp_err_t result = esp_now_send(targetMac, (uint8_t *)&pingPkt, sizeof(pingPkt));
+    m_routingTable.recordTxTime(targetMac);
+    Serial.printf("[ETX Ping] Đang gửi Ping tới MAC: %02X:%02X... | Result: %s\n",
+                  targetMac[0], targetMac[1], result == ESP_OK ? "OK" : "FAIL");
 }

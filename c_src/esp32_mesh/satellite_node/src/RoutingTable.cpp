@@ -6,6 +6,13 @@ RoutingTable::RoutingTable(uint8_t satelliteId)
     memset(m_nextHopMac, 0, 6);
     memset(m_evacNextHopMac, 0, 6);
     memset(m_physNeighbors, 0, sizeof(m_physNeighbors));
+    
+    memset(m_linkQualities, 0, sizeof(m_linkQualities));
+    for (int i = 0; i < MAX_LINK_QUALITY_ENTRIES; i++) {
+        m_linkQualities[i].etx = 1.0;
+        m_linkQualities[i].deliveryRatio = 1.0;
+        m_linkQualities[i].active = false;
+    }
 }
 
 void RoutingTable::purgeExpired(unsigned long timeout) {
@@ -242,5 +249,84 @@ uint8_t RoutingTable::getDataNextHopId() const {
     if (isMacZero) return 0xFF;
     
     // Nếu không trùng láng giềng vệ tinh nào nhưng MAC khác 0, đó chính là Master Node 0
+    return 0;
+}
+
+void RoutingTable::updateEtx(const uint8_t* mac, bool success) {
+    int foundIdx = -1;
+    int emptyIdx = -1;
+
+    for (int i = 0; i < MAX_LINK_QUALITY_ENTRIES; i++) {
+        if (m_linkQualities[i].active && memcmp(m_linkQualities[i].mac, mac, 6) == 0) {
+            foundIdx = i;
+            break;
+        }
+        if (!m_linkQualities[i].active && emptyIdx == -1) {
+            emptyIdx = i;
+        }
+    }
+
+    int targetIdx = foundIdx;
+    if (targetIdx == -1) {
+        if (emptyIdx != -1) {
+            targetIdx = emptyIdx;
+            memcpy(m_linkQualities[targetIdx].mac, mac, 6);
+            m_linkQualities[targetIdx].active = true;
+            m_linkQualities[targetIdx].etx = 1.0f;
+            m_linkQualities[targetIdx].deliveryRatio = 1.0f;
+            m_linkQualities[targetIdx].lastTxTime = 0;
+        } else {
+            return;
+        }
+    }
+
+    float txResult = success ? 1.0f : 0.0f;
+    m_linkQualities[targetIdx].deliveryRatio = 0.15f * txResult + 0.85f * m_linkQualities[targetIdx].deliveryRatio;
+    
+    if (m_linkQualities[targetIdx].deliveryRatio < 0.066f) {
+        m_linkQualities[targetIdx].deliveryRatio = 0.066f;
+    }
+    
+    m_linkQualities[targetIdx].etx = 1.0f / m_linkQualities[targetIdx].deliveryRatio;
+    
+    Serial.printf("[ETX Update] MAC: %02X:%02X... | Success: %d | Ratio: %.2f | ETX: %.2f\n",
+                  mac[0], mac[1], success, m_linkQualities[targetIdx].deliveryRatio, m_linkQualities[targetIdx].etx);
+}
+
+float RoutingTable::getLinkEtx(const uint8_t* mac) const {
+    for (int i = 0; i < MAX_LINK_QUALITY_ENTRIES; i++) {
+        if (m_linkQualities[i].active && memcmp(m_linkQualities[i].mac, mac, 6) == 0) {
+            return m_linkQualities[i].etx;
+        }
+    }
+    return 1.0f;
+}
+
+void RoutingTable::recordTxTime(const uint8_t* mac) {
+    for (int i = 0; i < MAX_LINK_QUALITY_ENTRIES; i++) {
+        if (m_linkQualities[i].active && memcmp(m_linkQualities[i].mac, mac, 6) == 0) {
+            m_linkQualities[i].lastTxTime = millis();
+            return;
+        }
+    }
+    
+    for (int i = 0; i < MAX_LINK_QUALITY_ENTRIES; i++) {
+        if (!m_linkQualities[i].active) {
+            memcpy(m_linkQualities[i].mac, mac, 6);
+            m_linkQualities[i].active = true;
+            m_linkQualities[i].etx = 1.0f;
+            m_linkQualities[i].deliveryRatio = 1.0f;
+            m_linkQualities[i].lastTxTime = millis();
+            return;
+        }
+    }
+}
+
+unsigned long RoutingTable::getLastTxTime(const uint8_t* mac) const {
+    for (int i = 0; i < MAX_LINK_QUALITY_ENTRIES; i++) {
+        if (m_linkQualities[i].active && memcmp(m_linkQualities[i].mac, mac, 6) == 0) {
+            return m_linkQualities[i].lastTxTime;
+        }
+    }
     return 0;
 }

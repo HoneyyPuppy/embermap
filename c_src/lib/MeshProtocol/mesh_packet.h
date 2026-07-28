@@ -15,6 +15,7 @@
 #define PACKET_OTA_CHUNK         9   // Gửi một mảnh dữ liệu nhị phân (180 bytes)
 #define PACKET_OTA_ACK          10   // Vệ tinh báo cáo danh sách các mảnh lỗi (NACK) / ACK hoàn tất
 #define PACKET_OTA_END          11   // Kết thúc truyền OTA, yêu cầu reset chạy app mới
+#define PACKET_ETX_PING          12  // Light ping for ETX evaluation
 
 #define MAX_ROUTE_PATH           8   // Hạn mức số Hop tối đa để tránh lặp vòng định tuyến
 
