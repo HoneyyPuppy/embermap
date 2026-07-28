@@ -1,6 +1,7 @@
 #include "WiFiService.h"
 #include <esp_wifi.h>
-#include "ConfigService.h"
+#include "ConfigStorage.h"
+#include "CaptivePortal.h"
 
 void WiFiService::connect(const char* ssid, const char* password) {
     Serial.printf("Connecting to WiFi: %s\n", ssid);
@@ -21,10 +22,10 @@ void WiFiService::connect(const char* ssid, const char* password) {
 }
 
 bool WiFiService::connectWithPortal(const char* portalSsid, String &loadedUrl) {
-    ConfigService::init();
+    ConfigStorage::init();
     String ssid, pass, url;
     
-    if (ConfigService::loadConfig(ssid, pass, url)) {
+    if (ConfigStorage::loadConfig(ssid, pass, url)) {
         Serial.printf("Connecting to Saved WiFi: %s\n", ssid.c_str());
         WiFi.begin(ssid.c_str(), pass.c_str());
         unsigned long startAttemptTime = millis();
@@ -46,11 +47,11 @@ bool WiFiService::connectWithPortal(const char* portalSsid, String &loadedUrl) {
     }
     
     // Khởi động Portal nếu kết nối lỗi hoặc chưa có cấu hình
-    ConfigService::startConfigPortal(portalSsid);
+    CaptivePortal::start(portalSsid);
     
     // Lặp liên tục xử lý yêu cầu của Portal cho tới khi tự reset
-    while (ConfigService::isPortalActive()) {
-        ConfigService::handlePortal();
+    while (CaptivePortal::isActive()) {
+        CaptivePortal::handle();
         delay(10);
     }
     return false;

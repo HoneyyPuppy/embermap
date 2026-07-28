@@ -4,7 +4,8 @@
 #include <WiFiService.h>
 #include <WebService.h>
 #include <SensorService.h>
-#include <ConfigService.h>
+#include <ResetButton.h>
+#include "DashboardServer.h"
 #include "MeshGateway.h"
 
 // Biến trạng thái cảm biến Master
@@ -27,7 +28,7 @@ void setup() {
     SensorService::init("MASTER");
 
     // Khởi tạo và khởi động tác vụ chạy ngầm giám sát nút BOOT (GPIO 0) bất kể nghẽn mạng
-    ConfigService::startResetButtonTask(0);
+    ResetButton::startTask(0);
 
     WiFi.mode(WIFI_STA);
 
@@ -40,7 +41,7 @@ void setup() {
     meshGateway.init();
 
     // Khởi động Web Server hoạt động bình thường phục vụ Dashboard và OTA
-    ConfigService::startNormalWebServer([]() {
+    DashboardServer::start([]() {
         String json = "{";
         
         // Trạng thái Master Node
@@ -55,15 +56,15 @@ void setup() {
         json += "\"satellites\": [";
         for (int i = 1; i <= 5; i++) {
             bool active = false;
-            const uint8_t* mac = meshGateway.getSatMac(i);
+            const uint8_t* mac = meshGateway.satManager().getMac(i);
             if (mac) {
                 for (int j = 0; j < 6; j++) {
                     if (mac[j] != 0) { active = true; break; }
                 }
             }
             
-            float temp = meshGateway.getSatTemp(i);
-            int gas = meshGateway.getSatGas(i);
+            float temp = meshGateway.satManager().getTemp(i);
+            int gas = meshGateway.satManager().getGas(i);
             bool emergency = (gas >= 400 || temp >= 55.0);
             
             json += "{";
@@ -89,10 +90,10 @@ uint8_t sequentialOtaTarget = 0; // 0: tắt, 1-5: Node đang được cập nh�
 // ==================== LOOP ====================
 void loop() {
     // Xử lý các yêu cầu Web Client gửi tới Gateway
-    ConfigService::handleNormalWebServer();
+    DashboardServer::handle();
 
     // Xử lý tiến trình truyền tải OTA qua ESP-NOW
-    meshGateway.processOtaTransmission();
+    meshGateway.otaSender().processTransmission();
 
     unsigned long currentMillis = millis();
 
@@ -101,13 +102,13 @@ void loop() {
     SensorService::updateAlarm(isEmergency, true);
 
     // Kiểm tra xem Web Server có yêu cầu truyền OTA vô tuyến không
-    if (ConfigService::isSatelliteOtaPending()) {
-        uint8_t targetSatId = ConfigService::getOtaTargetSatId();
+    if (DashboardServer::isSatelliteOtaPending()) {
+        uint8_t targetSatId = DashboardServer::getOtaTargetSatId();
         if (targetSatId == 0xFE) { // Tất cả các vệ tinh tuần tự
             Serial.println("[OTA Master] Bắt đầu nâng cấp tuần tự toàn mạng...");
             sequentialOtaTarget = 1;
             while (sequentialOtaTarget <= 5) {
-                const uint8_t* mac = meshGateway.getSatMac(sequentialOtaTarget);
+                const uint8_t* mac = meshGateway.satManager().getMac(sequentialOtaTarget);
                 bool hasMac = false;
                 if (mac) {
                     for (int j = 0; j < 6; j++) {
@@ -115,7 +116,7 @@ void loop() {
                     }
                 }
                 if (hasMac) {
-                    meshGateway.startOtaUpdate(sequentialOtaTarget);
+                    meshGateway.otaSender().start(sequentialOtaTarget, meshGateway.satManager().getMac(sequentialOtaTarget));
                     break;
                 }
                 sequentialOtaTarget++;
@@ -126,17 +127,17 @@ void loop() {
             }
         } else {
             sequentialOtaTarget = 0;
-            meshGateway.startOtaUpdate(targetSatId);
+            meshGateway.otaSender().start(targetSatId, meshGateway.satManager().getMac(targetSatId));
         }
-        ConfigService::clearSatelliteOtaPending();
+        DashboardServer::clearSatelliteOtaPending();
     }
 
     // Nếu đang chạy nâng cấp tuần tự, tự động chuyển sang nút tiếp theo khi nút trước hoàn thành
     if (sequentialOtaTarget > 0 && sequentialOtaTarget <= 5) {
-        if (!meshGateway.isOtaActive()) {
+        if (!meshGateway.otaSender().isActive()) {
             sequentialOtaTarget++;
             while (sequentialOtaTarget <= 5) {
-                const uint8_t* mac = meshGateway.getSatMac(sequentialOtaTarget);
+                const uint8_t* mac = meshGateway.satManager().getMac(sequentialOtaTarget);
                 bool hasMac = false;
                 if (mac) {
                     for (int j = 0; j < 6; j++) {
@@ -144,7 +145,7 @@ void loop() {
                     }
                 }
                 if (hasMac) {
-                    meshGateway.startOtaUpdate(sequentialOtaTarget);
+                    meshGateway.otaSender().start(sequentialOtaTarget, meshGateway.satManager().getMac(sequentialOtaTarget));
                     break;
                 }
                 sequentialOtaTarget++;
@@ -157,13 +158,13 @@ void loop() {
     }
 
     if (currentMillis - lastRouteBroadcastTime >= ROUTE_BROADCAST_INTERVAL) {
-        meshGateway.broadcastRouteUpdate();
+        meshGateway.beacon().broadcastRouteUpdate();
         lastRouteBroadcastTime = currentMillis;
     }
 
     if (currentMillis - lastEvacBroadcastTime >= EVAC_BROADCAST_INTERVAL) {
         bool masterEmergency = (master_gas >= 400 || master_temp >= 55.0);
-        meshGateway.broadcastEvacPotential(masterEmergency ? 9999.0 : 0.0);
+        meshGateway.beacon().broadcastEvacPotential(masterEmergency ? 9999.0 : 0.0);
         lastEvacBroadcastTime = currentMillis;
     }
 
@@ -180,20 +181,20 @@ void loop() {
             WebService::postReading(backendUrl.c_str(), "temp-master", "temp", master_temp);
             WebService::postReading(backendUrl.c_str(), "mq2-master", "mq2", (float)master_gas);
 
-            WebService::postReading(backendUrl.c_str(), "temp-sat-1", "temp", meshGateway.getSatTemp(1));
-            WebService::postReading(backendUrl.c_str(), "mq2-sat-1", "mq2", (float)meshGateway.getSatGas(1));
+            WebService::postReading(backendUrl.c_str(), "temp-sat-1", "temp", meshGateway.satManager().getTemp(1));
+            WebService::postReading(backendUrl.c_str(), "mq2-sat-1", "mq2", (float)meshGateway.satManager().getGas(1));
 
-            WebService::postReading(backendUrl.c_str(), "temp-sat-2", "temp", meshGateway.getSatTemp(2));
-            WebService::postReading(backendUrl.c_str(), "mq2-sat-2", "mq2", (float)meshGateway.getSatGas(2));
+            WebService::postReading(backendUrl.c_str(), "temp-sat-2", "temp", meshGateway.satManager().getTemp(2));
+            WebService::postReading(backendUrl.c_str(), "mq2-sat-2", "mq2", (float)meshGateway.satManager().getGas(2));
 
-            WebService::postReading(backendUrl.c_str(), "temp-sat-3", "temp", meshGateway.getSatTemp(3));
-            WebService::postReading(backendUrl.c_str(), "mq2-sat-3", "mq2", (float)meshGateway.getSatGas(3));
+            WebService::postReading(backendUrl.c_str(), "temp-sat-3", "temp", meshGateway.satManager().getTemp(3));
+            WebService::postReading(backendUrl.c_str(), "mq2-sat-3", "mq2", (float)meshGateway.satManager().getGas(3));
 
-            WebService::postReading(backendUrl.c_str(), "temp-sat-4", "temp", meshGateway.getSatTemp(4));
-            WebService::postReading(backendUrl.c_str(), "mq2-sat-4", "mq2", (float)meshGateway.getSatGas(4));
+            WebService::postReading(backendUrl.c_str(), "temp-sat-4", "temp", meshGateway.satManager().getTemp(4));
+            WebService::postReading(backendUrl.c_str(), "mq2-sat-4", "mq2", (float)meshGateway.satManager().getGas(4));
 
-            WebService::postReading(backendUrl.c_str(), "temp-sat-5", "temp", meshGateway.getSatTemp(5));
-            WebService::postReading(backendUrl.c_str(), "mq2-sat-5", "mq2", (float)meshGateway.getSatGas(5));
+            WebService::postReading(backendUrl.c_str(), "temp-sat-5", "temp", meshGateway.satManager().getTemp(5));
+            WebService::postReading(backendUrl.c_str(), "mq2-sat-5", "mq2", (float)meshGateway.satManager().getGas(5));
         } else {
             Serial.println("\n[Warning] WiFi offline, cannot upload to Web!");
         }
