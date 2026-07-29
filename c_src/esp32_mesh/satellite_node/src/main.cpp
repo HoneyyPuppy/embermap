@@ -70,6 +70,8 @@ void serialListenerTask(void* pvParameters) {
                 } else {
                     Serial.println("[Settings Error] Node ID chỉ được nằm trong khoảng từ 1 đến 5!");
                 }
+            } else if (cmd.equals("CALIBRATE_GAS")) {
+                SensorService::calibrateMq2();
             }
         }
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -79,6 +81,10 @@ void serialListenerTask(void* pvParameters) {
 // ==================== SETUP ====================
 void setup() {
     Serial.begin(115200);
+    Serial.println("\n========================================");
+    Serial.println("  EMBERMAP Satellite Firmware v2.5-OTA");
+    Serial.println("  Build: " __DATE__ " " __TIME__);
+    Serial.println("========================================");
     SensorService::init("SATELLITE");
 
     // Tạo task lắng nghe cấu hình ID từ Serial Monitor (Core 0)

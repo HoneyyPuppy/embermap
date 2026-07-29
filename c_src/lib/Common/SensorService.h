@@ -16,6 +16,10 @@ public:
     static const float TEMP_THRESHOLD;
     static const int GAS_THRESHOLD;
 
+    static float MQ2_R0;
+    static void calibrateMq2();
+    static float getRs(uint32_t voltMv);
+
     static void init(const char* nodeName);
     static void read(float &temp, int &gas, bool &emergency);
     static void updateAlarm(bool emergency, bool hasRoute, float repulsivePotential = 0.0);
