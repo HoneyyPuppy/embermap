@@ -95,6 +95,15 @@ void loop() {
     if (SerialConsole::checkCommand(cmd)) {
         if (cmd.equals("CALIBRATE_GAS")) {
             SensorService::calibrateMq2();
+        } else if (cmd.startsWith("SET_GAS=")) {
+            int val = cmd.substring(8).toInt();
+            if (val < 0) {
+                SensorService::disableSimulatedGas();
+                Serial.println("[Sensor] Đã quay lại chế độ đọc cảm biến MQ-2 vật lý.");
+            } else {
+                SensorService::setSimulatedGas(val);
+                Serial.printf("[Sensor] Đã bật chế độ giả lập nồng độ Gas: %d\n", val);
+            }
         }
     }
 

@@ -33,15 +33,39 @@ void sensorTask(void *pvParameters) {
         else if (satelliteId == 4 && sharedEvacPotential > 12.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
         else if (satelliteId == 5 && sharedEvacPotential > 37.0 && sharedEvacPotential < 9999.0) repulsivePot = 1.0;
 
+        // Xác định ID láng giềng đầu DOUT của dây LED tương ứng từ RoutingTable
+        uint8_t targetNeighbor = 255;
+        uint8_t neighborNextHopId = 255;
+
+        if (xSemaphoreTake(dataMutex, portMAX_DELAY) == pdTRUE) {
+            const PhysicalNeighbor* phys = routingTable.getPhysicalNeighbors();
+            uint8_t count = routingTable.getPhysCount();
+            if (count > 0) {
+                targetNeighbor = phys[0].id; // Lấy láng giềng đầu tiên trong danh sách láng giềng vật lý đã cấu hình
+                
+                if (targetNeighbor == 0) {
+                    neighborNextHopId = 0; // Master luôn tự hướng tới chính nó
+                } else {
+                    for (uint8_t i = 0; i < count; i++) {
+                        if (phys[i].id == targetNeighbor && phys[i].active) {
+                            neighborNextHopId = phys[i].evacNextHopId;
+                            break;
+                        }
+                    }
+                }
+            }
+            xSemaphoreGive(dataMutex);
+        }
+
         if (emergency || sharedEvacPotential >= 9999.0) {
             // Đỏ nhấp nháy: Bản thân bị cháy hoặc bị kẹt hoàn toàn không lối thoát
-            SensorService::updateAlarm(true, sharedHasEvacRoute, repulsivePot);
+            SensorService::updateAlarm(true, sharedHasEvacRoute, repulsivePot, satelliteId, sharedEvacNextHopId, targetNeighbor, neighborNextHopId);
             if (sharedEvacPotential >= 9999.0) {
                 Serial.println("[Evac Alert] BỊ KẸT HOÀN TOÀN! Lối thoát hiểm đã bị lửa chặn đứng.");
             }
         } else {
             // Xanh (An toàn tuyệt đối) hoặc Vàng (Cảnh báo đi vòng tránh lửa ở xa)
-            SensorService::updateAlarm(false, sharedHasEvacRoute, repulsivePot);
+            SensorService::updateAlarm(false, sharedHasEvacRoute, repulsivePot, satelliteId, sharedEvacNextHopId, targetNeighbor, neighborNextHopId);
         }
 
         // Gửi telemetry về Master qua lớp mạng Gradient nếu không chạy OTA
