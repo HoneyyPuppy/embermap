@@ -108,7 +108,12 @@ void SensorService::read(float &temp, int &gas, bool &emergency) {
 #endif
 
 #if HAS_GAS_SENSOR
-    uint32_t voltMv = analogReadMilliVolts(MQ2_PIN);
+    uint32_t sumVolts = 0;
+    for (int i = 0; i < 10; i++) {
+        sumVolts += analogReadMilliVolts(MQ2_PIN);
+        delay(5);
+    }
+    uint32_t voltMv = sumVolts / 10;
     float rs = getRs(voltMv);
     float ratio = rs / MQ2_R0;
     
@@ -116,7 +121,7 @@ void SensorService::read(float &temp, int &gas, bool &emergency) {
     // ratio = 9.83 (sạch tuyệt đối) -> gas = 0
     // ratio giảm dần khi có khói. Nếu ratio <= 1.0 (rất độc/cháy) -> gas ~ 900+
     float gasVal = 1000.0f * (9.83f - ratio) / 9.83f;
-    if (gasVal < 0.0f) gasVal = 0.0f;
+    if (gasVal < 60.0f) gasVal = 0.0f; // Ngưỡng lọc nhiễu dao động nhẹ ở không khí sạch (Deadband)
     if (gasVal > 1000.0f) gasVal = 1000.0f;
     gas = (int)gasVal;
 
