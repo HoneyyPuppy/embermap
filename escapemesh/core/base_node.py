@@ -199,6 +199,16 @@ class Node:
         self.route_path: Tuple[str, ...] = (self.id,) if is_exit else tuple()
         self.prev_route_path: Tuple[str, ...] = self.route_path
 
+        self.is_refuge = False
+        self.exit_cost = 0.0 if is_exit else float(INF)
+        self.refuge_cost = float(INF)
+        self.exit_path = (self.id,) if is_exit else tuple()
+        self.refuge_path = tuple()
+        self.prev_exit_cost = self.exit_cost
+        self.prev_refuge_cost = self.refuge_cost
+        self.prev_exit_path = self.exit_path
+        self.prev_refuge_path = self.refuge_path
+
         # Staged packet queues for synchronous update with packet loss check
         self.incoming_lsas = JacobiQueue(self)
         self.incoming_dsdv_updates = JacobiQueue(self)
@@ -230,8 +240,12 @@ class Node:
         self.on_fire = True
         self.smoke_level = max(self.smoke_level, 1000.0) # Ensure full smoke at fire site
         self.cost = float(INF)
+        self.exit_cost = float(INF)
+        self.refuge_cost = float(INF)
         self.points_to = None
         self.route_path = tuple()
+        self.exit_path = tuple()
+        self.refuge_path = tuple()
         ColorLogger.error(f"Node {self.id} detected FIRE!")
         self.on_fire_action()
 
@@ -247,15 +261,23 @@ class Node:
         self.online = online
         if not online:
             self.cost = float(INF)
+            self.exit_cost = float(INF)
+            self.refuge_cost = float(INF)
             self.points_to = None
             self.route_path = tuple()
+            self.exit_path = tuple()
+            self.refuge_path = tuple()
             self.on_offline_action()
             ColorLogger.warn(f"Node {self.id} temporarily OFFLINE")
         else:
             # Never resume with a stale route. The protocol must revalidate it.
             self.cost = 0.0 if self.is_exit else float(INF)
+            self.exit_cost = 0.0 if self.is_exit else float(INF)
+            self.refuge_cost = 0.0 if self.is_refuge else float(INF)
             self.points_to = None
             self.route_path = (self.id,) if self.is_exit else tuple()
+            self.exit_path = (self.id,) if self.is_exit else tuple()
+            self.refuge_path = (self.id,) if self.is_refuge else tuple()
             self.on_online_action()
             ColorLogger.info(f"Node {self.id} is ONLINE again")
 
@@ -382,6 +404,10 @@ class Node:
         self.prev_points_to = self.points_to
         self.prev_on_fire = self.on_fire
         self.prev_route_path = self.route_path
+        self.prev_exit_cost = self.exit_cost
+        self.prev_refuge_cost = self.refuge_cost
+        self.prev_exit_path = self.exit_path
+        self.prev_refuge_path = self.refuge_path
 
         # Smoke diffusion logic
         if getattr(self, 'smoke_propagation_enabled', True) and not self.on_fire and not self.is_exit:
@@ -398,6 +424,10 @@ class Node:
                     self.prev_points_to = self.points_to
                     self.prev_on_fire = self.on_fire
                     self.prev_route_path = self.route_path
+                    self.prev_exit_cost = self.exit_cost
+                    self.prev_refuge_cost = self.refuge_cost
+                    self.prev_exit_path = self.exit_path
+                    self.prev_refuge_path = self.refuge_path
         
         # Release staged packets for Jacobi synchronous message passing (based on delivery schedule)
         self.incoming_lsas.swap_staged_to_active(self.tick_counter)

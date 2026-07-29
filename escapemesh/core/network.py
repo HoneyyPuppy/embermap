@@ -240,7 +240,17 @@ class MeshNetwork:
         node_class = node_classes.get(routing_mode, GradientNode)
 
         for name, props in data.get("nodes", {}).items():
-            node_instance = node_class(name, props.get("is_exit", False), packet_loss_rate=self.packet_loss_rate)
+            is_exit = props.get("is_exit", False)
+            is_refuge = props.get("is_refuge", False)
+            
+            node_instance = node_class(name, is_exit, packet_loss_rate=self.packet_loss_rate)
+            node_instance.is_refuge = is_refuge
+            if is_refuge:
+                node_instance.refuge_cost = 0.0
+                node_instance.prev_refuge_cost = 0.0
+                node_instance.refuge_path = (name,)
+                node_instance.prev_refuge_path = (name,)
+                
             node_instance.max_distance = self.max_distance
             node_instance.fire_penalty = self.fire_penalty
             node_instance.delay_factor = self.delay_factor
@@ -249,7 +259,9 @@ class MeshNetwork:
             node_instance.smoke_propagation_enabled = self.smoke_propagation_enabled
             node_instance.smoke_increment = self.smoke_increment
             node_instance.physical_simulation_enabled = self.physical_simulation_enabled
-            node_instance.smoke_threshold = float(props.get("smoke_threshold", 400.0))
+            
+            default_threshold = 800.0 if is_refuge else 400.0
+            node_instance.smoke_threshold = float(props.get("smoke_threshold", default_threshold))
             self.nodes[name] = node_instance
             
         # Generate coordinates if missing, otherwise load from props

@@ -322,14 +322,19 @@ export function drawNodes(svg, floor) {
       return;
     }
 
-    const type = prompt('Enter sensor type (hallway, stairs, exit, deadend):', 'hallway');
-    if (!['hallway', 'stairs', 'exit', 'deadend'].includes(type)) {
+    const type = prompt('Enter sensor type (hallway, stairs, exit, deadend, refuge):', 'hallway');
+    if (!['hallway', 'stairs', 'exit', 'deadend', 'refuge'].includes(type)) {
       alert('Invalid node type selected.');
       return;
     }
 
     // Add to local state
-    state.topology.nodes[nodeId] = { is_exit: type === 'exit', smoke_level: 100.0, smoke_threshold: 400.0 };
+    state.topology.nodes[nodeId] = { 
+      is_exit: type === 'exit', 
+      is_refuge: type === 'refuge', 
+      smoke_level: 100.0, 
+      smoke_threshold: type === 'refuge' ? 800.0 : 400.0 
+    };
     state.topology.node_positions[nodeId] = {
       floor: floor,
       x: Math.round(coords.x),
@@ -571,7 +576,7 @@ export function updateNodeVisuals() {
     if (!s) return;
 
     // Reset animations
-    circle.classList.remove('node-fire', 'node-exit');
+    circle.classList.remove('node-fire', 'node-exit', 'node-refuge');
     if (fireZone) {
       fireZone.setAttribute('r', '0');
       fireZone.setAttribute('opacity', '0');
@@ -609,6 +614,7 @@ export function updateNodeVisuals() {
       }
 
       if (pos.type === 'exit') circle.classList.add('node-exit');
+      else if (pos.type === 'refuge') circle.classList.add('node-refuge');
     }
   });
 }

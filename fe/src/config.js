@@ -13,6 +13,7 @@ export const TYPE_COLORS = {
   hallway: '#06b6d4',  // Cyan LED
   room: '#f59e0b',     // Amber LED
   deadend: '#f97316',  // Orange LED
+  refuge: '#a855f7',   // Purple LED
 };
 export const FIRE_COLOR = '#ef4444';
 export const UNREACHABLE_COLOR = '#475569';

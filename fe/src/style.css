@@ -15,6 +15,7 @@
   --hallway-color: #06b6d4;      /* Cyan indicator */
   --room-color: #f59e0b;         /* Amber indicator */
   --deadend-color: #f97316;      /* Orange indicator */
+  --refuge-color: #a855f7;       /* Purple indicator */
   --fire-color: #ef4444;         /* Alarm Red */
   --unreachable: #94a3b8;        /* Dimmed Slate Gray */
   --primary: #10b981;            /* Primary action green */
@@ -143,10 +144,12 @@ select#protocol-select:focus { border-color: var(--accent); }
 /* ── Animations ── */
 @keyframes dash-flow { to { stroke-dashoffset: -12; } }
 @keyframes pulse-exit { 0%, 100% { filter: drop-shadow(0 0 4px var(--exit-color)); } 50% { filter: drop-shadow(0 0 12px var(--exit-color)); } }
+@keyframes pulse-refuge { 0%, 100% { filter: drop-shadow(0 0 4px var(--refuge-color)); } 50% { filter: drop-shadow(0 0 12px var(--refuge-color)); } }
 @keyframes pulse-fire { 0%, 100% { filter: drop-shadow(0 0 6px var(--fire-color)); } 50% { filter: drop-shadow(0 0 16px #f97316); } }
 @keyframes glow-ring { 0% { r: 6; opacity: 0.8; } 100% { r: 20; opacity: 0; } }
 
 .node-exit { animation: pulse-exit 2s ease-in-out infinite; }
+.node-refuge { animation: pulse-refuge 2s ease-in-out infinite; }
 .node-fire { animation: pulse-fire 0.8s ease-in-out infinite; }
 .glow-ring { animation: glow-ring 2s infinite; pointer-events: none; }
 

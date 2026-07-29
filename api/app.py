@@ -150,16 +150,28 @@ def get_topology():
     
     positions = {}
     for nid, props in topo.get("nodes", {}).items():
+        is_exit = props.get("is_exit", False)
+        is_refuge = props.get("is_refuge", False)
         if "x" in props and "y" in props:
+            node_type = props.get("type", "hallway")
+            if is_exit:
+                node_type = "exit"
+            elif is_refuge:
+                node_type = "refuge"
             positions[nid] = {
                 "floor": props.get("floor", 0),
                 "x": props["x"],
                 "y": props["y"],
-                "type": props.get("type", "hallway"),
+                "type": node_type,
                 "label": props.get("label", nid),
             }
         else:
-            positions[nid] = generated.get(nid, {"floor": 0, "x": 500, "y": 200, "type": "hallway", "label": nid})
+            gen_pos = generated.get(nid, {"floor": 0, "x": 500, "y": 200, "type": "hallway", "label": nid}).copy()
+            if is_exit:
+                gen_pos["type"] = "exit"
+            elif is_refuge:
+                gen_pos["type"] = "refuge"
+            positions[nid] = gen_pos
             
     return {
         "nodes": topo.get("nodes", {}),
@@ -180,14 +192,19 @@ def save_topology(payload: Dict[str, Any]):
     positions = payload.get("node_positions", {})
     for nid, props in payload.get("nodes", {}).items():
         pos = positions.get(nid, {})
+        is_exit = props.get("is_exit", False) or (pos.get("type") == "exit")
+        is_refuge = props.get("is_refuge", False) or (pos.get("type") == "refuge")
+        
+        default_threshold = 800.0 if is_refuge else 400.0
         nodes_data[nid] = {
-            "is_exit": props.get("is_exit", False),
+            "is_exit": is_exit,
+            "is_refuge": is_refuge,
             "floor": pos.get("floor", 0),
             "x": pos.get("x", 500),
             "y": pos.get("y", 200),
             "type": pos.get("type", "hallway"),
             "label": pos.get("label", nid),
-            "smoke_threshold": float(props.get("smoke_threshold", 400.0))
+            "smoke_threshold": float(props.get("smoke_threshold", default_threshold))
         }
 
     updated_topo = {
