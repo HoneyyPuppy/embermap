@@ -1,6 +1,6 @@
 #include "SensorService.h"
+#include "GasCalibrator.h"
 #include <common_config.h>
-#include <Preferences.h>
 
 // Pins
 #ifdef CONFIG_IDF_TARGET_ESP32S3
@@ -23,62 +23,16 @@ Adafruit_NeoPixel SensorService::pixels(NUMPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_K
 const float SensorService::TEMP_THRESHOLD = 50.0;
 const int SensorService::GAS_THRESHOLD = 300;
 
-float SensorService::MQ2_R0 = 10.0f;
-
-float SensorService::getRs(uint32_t voltMv) {
-    if (voltMv < 50) voltMv = 50; 
-    if (voltMv > 3300) voltMv = 3300; 
-    float voltV = (float)voltMv / 1000.0f;
-    float vin = 5.0f; // MQ-2 hoạt động ở nguồn 5V
-    float rl = 5.1f;  // Trở kháng tải mặc định 5.1 kOhm trên hầu hết module MQ-2
-    return rl * (vin - voltV) / voltV;
-}
-
 void SensorService::calibrateMq2() {
-    Serial.println("[Sensor Calib] Bắt đầu đo hiệu chuẩn MQ-2 trong 5 giây (Hãy giữ không khí sạch)...");
-    uint32_t sumVolts = 0;
-    int samples = 50;
-    for (int i = 0; i < samples; i++) {
-        sumVolts += analogReadMilliVolts(MQ2_PIN);
-        delay(100);
-    }
-    uint32_t avgVolt = sumVolts / samples;
-    float rs = getRs(avgVolt);
-    
-    // R0 = Rs / 9.83 (MQ-2 ratio in clean air)
-    float calculatedR0 = rs / 9.83f;
-    
-    // Giới hạn giá trị R0 hợp lệ từ 0.5 kOhm đến 150 kOhm
-    if (calculatedR0 >= 0.5f && calculatedR0 <= 150.0f) {
-        MQ2_R0 = calculatedR0;
-        Serial.printf("[Sensor Calib] Hiệu chuẩn THÀNH CÔNG! R0 = %.2f kOhm (Điện áp tb: %u mV)\n", MQ2_R0, avgVolt);
-        
-        // Lưu giá trị R0 vào NVS Preferences
-        Preferences prefs;
-        prefs.begin("sensor-calib", false);
-        prefs.putFloat("mq2_r0", MQ2_R0);
-        prefs.end();
-        Serial.println("[Sensor Calib] Đã lưu R0 vào bộ nhớ Flash.");
-    } else {
-        Serial.printf("[Sensor Calib] LỖI! R0 tính toán bất thường: %.2f kOhm. Dùng giá trị R0 hiện tại: %.2f kOhm.\n", 
-                      calculatedR0, MQ2_R0);
-    }
+#if HAS_GAS_SENSOR
+    GasCalibrator::start(MQ2_PIN);
+#endif
 }
 
 void SensorService::init(const char* nodeName) {
-    // Tải giá trị R0 đã lưu từ Flash
-    Preferences prefs;
-    prefs.begin("sensor-calib", false); // Dùng false để tự động tạo namespace nếu chưa tồn tại
-    float savedR0 = prefs.getFloat("mq2_r0", -1.0f);
-    prefs.end();
-    
-    if (savedR0 > 0.0f) {
-        MQ2_R0 = savedR0;
-        Serial.printf("[Sensor Calib] Đã tải R0 thành công từ bộ nhớ Flash: %.2f kOhm\n", MQ2_R0);
-    } else {
-        MQ2_R0 = 10.0f; // Giá trị mặc định nếu chưa được hiệu chuẩn lần nào
-        Serial.println("[Sensor Calib] Chưa có R0 trong Flash. Sử dụng R0 mặc định = 10.0 kOhm.");
-    }
+#if HAS_GAS_SENSOR
+    GasCalibrator::init("sensor-calib");
+#endif
 
 #if HAS_NEOPIXEL
     pixels.begin();
@@ -114,22 +68,27 @@ void SensorService::read(float &temp, int &gas, bool &emergency) {
         delay(5);
     }
     uint32_t voltMv = sumVolts / 10;
-    float rs = getRs(voltMv);
-    float ratio = rs / MQ2_R0;
+    float rs = GasCalibrator::getRs(voltMv);
+    float r0 = GasCalibrator::getR0();
+    float ratio = rs / r0;
     
     // Quy đổi tỷ lệ ratio sang thang đo gas số nguyên (0 - 1000)
     // ratio = 9.83 (sạch tuyệt đối) -> gas = 0
     // ratio giảm dần khi có khói. Nếu ratio <= 1.0 (rất độc/cháy) -> gas ~ 900+
-    float gasVal = 1000.0f * (9.83f - ratio) / 9.83f;
-    if (gasVal < 60.0f) gasVal = 0.0f; // Ngưỡng lọc nhiễu dao động nhẹ ở không khí sạch (Deadband)
+    float gasVal = 1000.0f * (GasCalibrator::CLEAN_AIR_RATIO - ratio) / GasCalibrator::CLEAN_AIR_RATIO;
+    if (gasVal < GasCalibrator::DEADBAND) gasVal = 0.0f; // Ngưỡng lọc nhiễu dao động nhẹ ở không khí sạch (Deadband)
     if (gasVal > 1000.0f) gasVal = 1000.0f;
     gas = (int)gasVal;
 
     // Log liên tục mỗi 3 giây để người dùng kiểm tra trạng thái hiệu chuẩn
     static unsigned long lastLogTime = 0;
     if (millis() - lastLogTime > 3000) {
-        Serial.printf("[Sensor MQ2] Volt: %u mV | Rs: %.2f kOhm | R0: %.2f kOhm | Ratio: %.2f | Gas: %d\n",
-                      voltMv, rs, MQ2_R0, ratio, gas);
+        if (GasCalibrator::isCalibrating()) {
+            Serial.println("[Sensor MQ2] Đang đo đạc hiệu chuẩn R0 chạy ngầm...");
+        } else {
+            Serial.printf("[Sensor MQ2] Volt: %u mV | Rs: %.2f kOhm | R0: %.2f kOhm | Ratio: %.2f | Gas: %d\n",
+                          voltMv, rs, r0, ratio, gas);
+        }
         lastLogTime = millis();
     }
 #else
