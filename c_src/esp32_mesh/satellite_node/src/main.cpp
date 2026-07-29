@@ -55,7 +55,7 @@ TaskHandle_t sensorTaskHandle = NULL;
 void serialListenerTask(void* pvParameters) {
     for (;;) {
         if (Serial.available()) {
-            String cmd = Serial.readStringUntil('\n');
+            String cmd = Serial.readString();
             cmd.trim();
             if (cmd.startsWith("SET_NODE_ID=")) {
                 uint8_t newId = cmd.substring(12).toInt();
@@ -74,13 +74,14 @@ void serialListenerTask(void* pvParameters) {
                 SensorService::calibrateMq2();
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
 // ==================== SETUP ====================
 void setup() {
     Serial.begin(115200);
+    Serial.setTimeout(50); // Phản hồi ngay lập tức không cần chờ timeout dài
     Serial.println("\n========================================");
     Serial.println("  EMBERMAP Satellite Firmware v2.5-OTA");
     Serial.println("  Build: " __DATE__ " " __TIME__);
@@ -88,7 +89,7 @@ void setup() {
     SensorService::init("SATELLITE");
 
     // Tạo task lắng nghe cấu hình ID từ Serial Monitor (Core 0)
-    xTaskCreatePinnedToCore(serialListenerTask, "SerialListener", 2048, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(serialListenerTask, "SerialListener", 4096, NULL, 1, NULL, 0);
 
     // Tìm và áp dụng cấu hình từ bảng Topology trung tâm trong common_config.h
     bool foundConfig = false;
