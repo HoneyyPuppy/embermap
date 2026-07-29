@@ -20,6 +20,7 @@ public:
 private:
     struct OtaSenderState {
         bool active;
+        bool startAcked;
         uint32_t fileSize;
         uint16_t totalChunks;
         uint16_t sentSeq;
