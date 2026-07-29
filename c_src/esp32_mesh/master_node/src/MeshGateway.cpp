@@ -57,7 +57,7 @@ void MeshGateway::handleRecv(const esp_now_recv_info_t *recv_info, const MeshPac
         if (memcmp(packet.forwardMac, m_myMac, 6) == 0) {
             Serial.printf("[Mesh] Received sensor from Node %d. Temp: %.1f C, Gas: %d\n", 
                           packet.id, packet.temp, packet.gasRaw);
-            m_satManager.updateSensorData(packet.id, packet.temp, packet.gasRaw, recv_info->src_addr);
+            m_satManager.updateSensorData(packet.id, packet.temp, packet.gasRaw, packet.sourceMac);
         }
     }
     else if (packet.packetType == PACKET_ROUTE_REQUEST) {

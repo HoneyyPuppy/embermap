@@ -28,6 +28,7 @@ private:
         uint16_t expectedSeq;
         unsigned long lastPacketTime;
         uint8_t masterMac[6];
+        char currentMd5[36]; // Lưu MD5 của firmware đang nhận để phát hiện gói START trùng lặp
     } m_state;
 };
 

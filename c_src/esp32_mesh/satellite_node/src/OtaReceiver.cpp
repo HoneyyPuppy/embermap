@@ -7,6 +7,7 @@ OtaReceiver::OtaReceiver(uint8_t satelliteId) : m_satelliteId(satelliteId) {
     m_state.expectedSeq = 0;
     m_state.lastPacketTime = 0;
     memset(m_state.masterMac, 0, 6);
+    memset(m_state.currentMd5, 0, sizeof(m_state.currentMd5));
 }
 
 void OtaReceiver::init(const uint8_t* myMac) {
@@ -17,6 +18,17 @@ void OtaReceiver::handleStart(const uint8_t* senderMac, const MeshPacket& pkt) {
     Serial.printf("[OTA Recv] Nhận gói bắt đầu OTA. File size: %u, MD5: %s\n", 
                   pkt.ota.start.otaFileSize, pkt.ota.start.otaMd5);
     
+    // Nếu đang nhận dở firmware cùng MD5 -> Đây là gói START trùng lặp do Master mất ACK
+    // Chỉ cần gửi lại ACK sẵn sàng mà KHÔNG hủy phiên đang chạy
+    if (m_state.active && strcmp(pkt.ota.start.otaMd5, m_state.currentMd5) == 0) {
+        Serial.println("[OTA Recv] Gói START trùng lặp (cùng MD5). Gửi lại ACK sẵn sàng.");
+        sendAck(0xFFFF);
+        return;
+    }
+
+    // Luôn gọi abort() trước begin() để giải phóng bộ đệm RAM bị khóa từ phiên cũ (nếu có)
+    Update.abort();
+
     // Đảm bảo peer của người gửi (Master) đã được đăng ký
     if (!esp_now_is_peer_exist(senderMac)) {
         esp_now_peer_info_t peerInfo = {};
@@ -32,11 +44,14 @@ void OtaReceiver::handleStart(const uint8_t* senderMac, const MeshPacket& pkt) {
     m_state.expectedSeq = 0;
     m_state.lastPacketTime = millis();
     memcpy(m_state.masterMac, senderMac, 6);
+    strncpy(m_state.currentMd5, pkt.ota.start.otaMd5, sizeof(m_state.currentMd5) - 1);
+    m_state.currentMd5[sizeof(m_state.currentMd5) - 1] = '\0';
     
     Update.setMD5(pkt.ota.start.otaMd5);
     if (!Update.begin(m_state.fileSize, U_FLASH)) {
         Serial.print("[OTA Recv Error] Update.begin failed: ");
         Update.printError(Serial);
+        m_state.active = false;
         sendAck(0xFFFF); // Báo lỗi
     } else {
         Serial.println("[OTA Recv] Update.begin thành công. Đang đợi chunks...");
@@ -56,8 +71,9 @@ void OtaReceiver::handleChunk(const MeshPacket& pkt) {
             m_state.expectedSeq++;
             m_state.lastPacketTime = millis();
             
-            // Gửi ACK mỗi 20 gói hoặc khi nhận gói cuối cùng của ứng dụng
-            if (m_state.expectedSeq % 20 == 0 || m_state.expectedSeq == m_state.totalChunks) {
+            // Gửi ACK mỗi 5 gói hoặc khi nhận gói cuối cùng
+            // (Phải nhỏ hơn cửa sổ trượt của Master = 15 để tránh deadlock)
+            if (m_state.expectedSeq % 5 == 0 || m_state.expectedSeq == m_state.totalChunks) {
                 sendAck(m_state.expectedSeq - 1);
             }
         } else {
