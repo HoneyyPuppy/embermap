@@ -159,16 +159,17 @@ void RoutingTable::updatePhysicalNeighborMac(uint8_t id, const uint8_t* mac) {
     }
 }
 
-void RoutingTable::updateEvacPotential(uint8_t neighborId, float potential, uint8_t nextHopId) {
+bool RoutingTable::updateEvacPotential(uint8_t neighborId, float potential, uint8_t nextHopId) {
     for (uint8_t i = 0; i < m_physCount; i++) {
         if (m_physNeighbors[i].id == neighborId) {
             m_physNeighbors[i].evacPotential = potential;
             m_physNeighbors[i].evacNextHopId = nextHopId;
             m_physNeighbors[i].lastSeen = millis();
             m_physNeighbors[i].active = true;
-            break;
+            return true;
         }
     }
+    return false;
 }
 
 bool RoutingTable::calculateEvacuation(float localRepulsive, float &outTotalPotential, uint8_t &outNextHopId, uint8_t *outNextHopMac) {

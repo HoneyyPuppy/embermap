@@ -12,9 +12,10 @@ void EvacProtocol::init(const uint8_t* myMac, const uint8_t* broadcastMac) {
 }
 
 void EvacProtocol::handleEvacAdvert(const uint8_t* senderMac, const MeshPacket& pkt) {
-    m_routingTable.updateEvacPotential(pkt.id, pkt.evacPotential, pkt.evacNextHopId);
-    Serial.printf("[Evac Recv] Nhận thế năng thoát hiểm từ Node %d: U = %.1f (sender=%02X:%02X)\n", 
-                  pkt.id, pkt.evacPotential, senderMac[0], senderMac[1]);
+    if (m_routingTable.updateEvacPotential(pkt.id, pkt.evacPotential, pkt.evacNextHopId)) {
+        Serial.printf("[Evac Recv] Nhận thế năng thoát hiểm từ Node %d: U = %.1f (sender=%02X:%02X)\n", 
+                      pkt.id, pkt.evacPotential, senderMac[0], senderMac[1]);
+    }
 }
 
 void EvacProtocol::broadcastPotential(float potential) {

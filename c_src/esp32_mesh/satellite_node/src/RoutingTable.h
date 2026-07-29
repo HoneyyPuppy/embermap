@@ -65,7 +65,7 @@ public:
     // Các hàm phục vụ định tuyến thoát hiểm con người (Evacuation Routing)
     void setPhysicalNeighbors(const uint8_t* ids, const float* distances, uint8_t count);
     void updatePhysicalNeighborMac(uint8_t id, const uint8_t* mac);
-    void updateEvacPotential(uint8_t neighborId, float potential, uint8_t nextHopId);
+    bool updateEvacPotential(uint8_t neighborId, float potential, uint8_t nextHopId);
     bool calculateEvacuation(float localRepulsive, float &outTotalPotential, uint8_t &outNextHopId, uint8_t *outNextHopMac);
     float getMyEvacPotential() const { return m_myEvacPotential; }
     uint8_t getEvacNextHopId() const { return m_evacNextHopId; }
