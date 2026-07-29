@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <SerialConsole.h>
 #include <WiFi.h>
 #include <common_config.h>
 #include <WiFiService.h>
@@ -24,8 +25,7 @@ MeshGateway meshGateway;
 
 // ==================== SETUP ====================
 void setup() {
-    Serial.begin(115200);
-    Serial.setTimeout(50); // Phản hồi ngay lập tức không cần chờ timeout dài
+    SerialConsole::init(115200);
     SensorService::init("MASTER");
 
     // Khởi tạo và khởi động tác vụ chạy ngầm giám sát nút BOOT (GPIO 0) bất kể nghẽn mạng
@@ -91,9 +91,8 @@ uint8_t sequentialOtaTarget = 0; // 0: tắt, 1-5: Node đang được cập nh�
 // ==================== LOOP ====================
 void loop() {
     // Đọc Serial nhận lệnh hiệu chuẩn (tương tự như Satellite)
-    if (Serial.available()) {
-        String cmd = Serial.readString();
-        cmd.trim();
+    String cmd;
+    if (SerialConsole::checkCommand(cmd)) {
         if (cmd.equals("CALIBRATE_GAS")) {
             SensorService::calibrateMq2();
         }

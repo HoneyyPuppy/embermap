@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <SerialConsole.h>
 #include <SensorService.h>
 #include <WiFiService.h>
 #include <common_config.h>
@@ -54,9 +55,8 @@ TaskHandle_t sensorTaskHandle = NULL;
 
 void serialListenerTask(void* pvParameters) {
     for (;;) {
-        if (Serial.available()) {
-            String cmd = Serial.readString();
-            cmd.trim();
+        String cmd;
+        if (SerialConsole::checkCommand(cmd)) {
             if (cmd.startsWith("SET_NODE_ID=")) {
                 uint8_t newId = cmd.substring(12).toInt();
                 if (newId >= 1 && newId <= 5) {
@@ -80,8 +80,7 @@ void serialListenerTask(void* pvParameters) {
 
 // ==================== SETUP ====================
 void setup() {
-    Serial.begin(115200);
-    Serial.setTimeout(50); // Phản hồi ngay lập tức không cần chờ timeout dài
+    SerialConsole::init(115200);
     Serial.println("\n========================================");
     Serial.println("  EMBERMAP Satellite Firmware v2.5-OTA");
     Serial.println("  Build: " __DATE__ " " __TIME__);
